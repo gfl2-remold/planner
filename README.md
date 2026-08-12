@@ -4,7 +4,7 @@
 
 ## 바로 사용 (웹 버전 — 추천)
 
-👉 **https://gfl2-remolding.github.io/planner/**
+👉 **https://gfl2-remold.github.io/planner/**
 
 설치·다운로드 없이 브라우저에서 바로 사용. 데이터는 브라우저(localStorage)에 저장됩니다.
 

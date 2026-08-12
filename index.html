@@ -753,7 +753,9 @@ button.danger:hover{border-color:var(--bad)}
       <button class="ghost" id="searchClose">닫기 ✕</button>
     </div>
     <input id="searchInput" type="text" placeholder="옵션명 일부 입력 — 예: 균형, 피칼, 협동" autocomplete="off"
-           style="width:100%;box-sizing:border-box;margin-bottom:10px">
+           style="width:100%;box-sizing:border-box;margin-bottom:6px">
+    <input id="searchInput2" type="text" placeholder="결과 내 검색 — 예: 강타" autocomplete="off"
+           style="width:100%;box-sizing:border-box;margin-bottom:10px;display:none;opacity:.9">
     <div id="searchBody" style="max-height:60vh;overflow-y:auto"></div>
   </div>
 </div>
@@ -3305,6 +3307,7 @@ const SEARCH_ALIAS = {
 function openInvSearch(){
   const ov = document.getElementById('searchOv');
   const inp = document.getElementById('searchInput');
+  const inp2 = document.getElementById('searchInput2');
   const body = document.getElementById('searchBody');
   const holderOf = (it) => {
     for(const k in equipsByDoll){ if((equipsByDoll[k]||[]).includes(it.id)) return dollById(+k); }
@@ -3326,10 +3329,14 @@ function openInvSearch(){
   const render = () => {
     body.innerHTML = '';
     const q = inp.value.replace(/\s+/g, '');
-    if(!q){ body.appendChild(el('<div class="inv-empty">옵션명을 입력하면 보유 리몰딩에서 실시간 검색됩니다.</div>')); return; }
-    const hits = inv.map(it => ({it, sc: scoreIt(it, q)})).filter(x => x.sc > 0)
-                    .sort((a, b) => b.sc - a.sc || itemTotal(b.it) - itemTotal(a.it));
-    document.getElementById('searchHead').textContent = `보유 리몰딩 검색 — ${hits.length}개`;
+    const q2 = inp2.value.replace(/\s+/g, '');
+    if(!q){ inp2.style.display = 'none'; body.appendChild(el('<div class="inv-empty">옵션명을 입력하면 보유 리몰딩에서 실시간 검색됩니다.</div>')); return; }
+    /* 결과 내 검색: 1차 매치 집합에 2차 질의를 AND로 추가(별칭·축약 동일 지원). 2차 점수는 정렬 보조 키. */
+    let hits = inv.map(it => ({it, sc: scoreIt(it, q)})).filter(x => x.sc > 0);
+    inp2.style.display = hits.length || q2 ? '' : 'none';
+    if(q2) hits = hits.map(x => ({...x, sc2: scoreIt(x.it, q2)})).filter(x => x.sc2 > 0);
+    hits.sort((a, b) => b.sc - a.sc || (b.sc2||0) - (a.sc2||0) || itemTotal(b.it) - itemTotal(a.it));
+    document.getElementById('searchHead').textContent = `보유 리몰딩 검색 — ${hits.length}개${q2 ? ' (결과 내)' : ''}`;
     if(!hits.length){ body.appendChild(el('<div class="inv-empty">일치하는 리몰딩이 없습니다.</div>')); return; }
     const listBox = el('<div class="inv-items"></div>');
     hits.forEach(({it}) => {
@@ -3344,10 +3351,11 @@ function openInvSearch(){
     });
     body.appendChild(listBox);
   };
-  inp.oninput = render;
+  inp.oninput = render; inp2.oninput = render;
   document.getElementById('searchClose').onclick = () => { ov.style.display = 'none'; };
   ov.style.display = 'flex';
-  inp.value = ''; document.getElementById('searchHead').textContent = '보유 리몰딩 검색';
+  inp.value = ''; inp2.value = ''; inp2.style.display = 'none';
+  document.getElementById('searchHead').textContent = '보유 리몰딩 검색';
   render(); inp.focus();
 }
 

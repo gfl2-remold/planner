@@ -1457,12 +1457,18 @@ const COMBAT_DMG_BUFF = 120;
    생명 강화(체력%)·칼과 피의 공명(공→체 flat)이 주스탯 옵션. 기본(미등록)은 'atk'. */
 /* 가중 공격 계수 인형. 'hp'=계수·관통 둘 다 최대 체력(류시 — 위키: "방어력 관통력 효과도 최대 체력이 대신").
    'hpx'=계수는 체력이나 관통은 공격력(스프링필드 — 위키: "관통 개념으로 공격력의 영향을 받는다" → 피칼전>칼피공). */
-const DOLL_SCALE = { '류시': 'hp', '스프링필드': 'hpx', '페리': 'hpx' };
+const DOLL_SCALE = { '류시': 'hp', '스프링필드': 'hpx', '페리': 'hpx', '웰로드': 'hpx' };
+/* 웰로드(hpx, 비보스 상정): 탑/버티기 전용 — 용의자 체력비례 딜 + 2스킬 최대 체력 피해계수(+60%) + 생존이
+   전부 체력에 걸려 실전은 체력 몰빵. 보스전은 체력비례가 공격 360% 고정으로 축소돼 효율 급락(위키·커뮤) → 비보스 기준.
+   계수=체력·관통=공격(2스킬 공격 base)로 체력 우선·공격 보조, 치명 -100%(DOLL_CRIT_OFFSET)로 치명·치피 무가치. */
 /* 페리(hpx): 위키 "변형 일반공격이 기초 체력 계수 … 공격 보너스는 방어 관통력 개념으로 보조 능력치" —
    스프링필드와 동일(계수=체력, 관통=공격력) → 피칼전>칼피공. 기초 체력 기준이나 계산기 FS.hp(정비실 기준)로 근사. */
 /* 실효 치명률 고정 — 패시브로 치명이 보장되는 인형(헬렌 차징 엣지, 페리 불스아이)은 기대딜 계산에서 100% 간주.
    스탯창 표시(최종 치명률)는 인게임 표기와 일치시키기 위해 그대로 두고 dmgMult 기준선만 오버라이드. */
 const CRIT_LOCK = { '헬렌': 100, '페리': 100 };
+/* 치명률 오프셋 — 패시브로 치명률이 상시 가감되는 인형. 웰로드 '사건의 지배자' -100%(위키): 실효 치명률이
+   거의 0으로 눌려 치명·치피 리몰딩이 무의미. crBase에 가산 후 0~100 클램프 → 치명 강화·치피 자동 무가치화. */
+const DOLL_CRIT_OFFSET = { '웰로드': -100 };
 /* 딜 속성 가변 인형: 경구=도약키 장착 시 연소·미장착 물리덱 운용 가능, OTs-14=모든 속성.
    이들은 elem 강제 제외 — 기본은 자기 속성, 사용자가 딜 속성 드롭다운으로 바꾸면 프로필로 유지. */
 const DOLL_ELEM_FLEX = new Set(['경구', 'OTs-14']);
@@ -2203,7 +2209,9 @@ const PARTS_PACKS = {
   '웰로드': B => ({cr:0,        cd:B.cd + 15, extraAtkPct:rnd1(B.atkB + 60.6), extraHpPct:rnd1(B.hpB + 60.6), extraAtk:288, extraHp:162, extraDef:0}),
   '페리':  B => ({cr:B.cr,      cd:B.cd + 30, extraAtkPct:rnd1(B.atkB + 60.6), extraHpPct:rnd1(B.hpB + 60.6), extraAtk:0,   extraHp:648, extraDef:0}),
   '바틸다': B => ({cr:B.cr + 60, cd:B.cd + 15, extraAtkPct:rnd1(B.atkB + 45.6), extraHpPct:B.hpB,           extraAtk:0,   extraHp:0,   extraDef:0,   extraDefPct:rnd1((B.defB||0) + 45.6)}),
-  '레이니': B => ({cr:B.cr + 30, cd:B.cd + 30, extraAtkPct:rnd1(B.atkB + 60.6), extraHpPct:rnd1(B.hpB + 34.2), extraAtk:288, extraHp:0,   extraDef:0}),
+  /* 레이니 cr+75: 파츠 치명(1번만) 대신 기초 체력 비례 치명 패시브(3돌+ 기준 +60%)+1번 치명(+15%)로 사실상 치명 만작.
+     → 치명 강화 리몰딩 저효율·치피 유효. 2~4번 체보(extraHpPct+34.2)는 파츠 치명을 체보로 대체한 결과(위키). */
+  '레이니': B => ({cr:B.cr + 75, cd:B.cd + 30, extraAtkPct:rnd1(B.atkB + 60.6), extraHpPct:rnd1(B.hpB + 34.2), extraAtk:288, extraHp:0,   extraDef:0}),
 };
 /* 방어형(수비) 전용 팩 — 해당 인형 선택 시 '방어형 세팅' 체크박스(cDefMode)가 나타나 전환.
    안도리스 수비형(위키): 파츠 체보/방보/체/방(1번 4옵, 2~4번 체보/방보/체), 공용키는 유틸이라 스탯 보정 없음.
@@ -4576,7 +4584,7 @@ function dmgMult(lvByKey){
      CRIT_LOCK 인형(헬렌 차징 엣지·페리 불스아이 — 패시브 치명 보장)은 스탯창 표기와 무관하게 실효 100% 간주
      → 치명 리몰딩 옵션(b.cr)이 자동 무가치화되고 치피 가치는 유지. */
   const _cl = dollById(dollId);
-  const crBase = (_cl && CRIT_LOCK[_cl.name] != null) ? CRIT_LOCK[_cl.name] : (S.cr + FS.bondCr + FS.wCr);
+  const crBase = (_cl && CRIT_LOCK[_cl.name] != null) ? CRIT_LOCK[_cl.name] : (S.cr + FS.bondCr + FS.wCr + ((_cl && DOLL_CRIT_OFFSET[_cl.name]) || 0));
   const cdBase = S.cd + FS.bondCd + FS.wCd;
   const cr0 = Math.min(100, Math.max(0, crBase));
   const cr1 = Math.min(100, Math.max(0, crBase + b.cr));

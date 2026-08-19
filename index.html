@@ -2236,9 +2236,10 @@ const PARTS_PACKS = {
   '웰로드': B => ({cr:0,        cd:B.cd + 15, extraAtkPct:rnd1(B.atkB + 60.6), extraHpPct:rnd1(B.hpB + 60.6), extraAtk:288, extraHp:162, extraDef:0}),
   '페리':  B => ({cr:B.cr,      cd:B.cd + 30, extraAtkPct:rnd1(B.atkB + 60.6), extraHpPct:rnd1(B.hpB + 60.6), extraAtk:0,   extraHp:648, extraDef:0}),
   '바틸다': B => ({cr:B.cr + 60, cd:B.cd + 15, extraAtkPct:rnd1(B.atkB + 45.6), extraHpPct:B.hpB,           extraAtk:0,   extraHp:0,   extraDef:0,   extraDefPct:rnd1((B.defB||0) + 45.6)}),
-  /* 레이니 cr+75: 파츠 치명(1번만) 대신 기초 체력 비례 치명 패시브(3돌+ 기준 +60%)+1번 치명(+15%)로 사실상 치명 만작.
-     → 치명 강화 리몰딩 저효율·치피 유효. 2~4번 체보(extraHpPct+34.2)는 파츠 치명을 체보로 대체한 결과(위키). */
-  '레이니': B => ({cr:B.cr + 75, cd:B.cd + 30, extraAtkPct:rnd1(B.atkB + 60.6), extraHpPct:rnd1(B.hpB + 34.2), extraAtk:288, extraHp:0,   extraDef:0}),
+  /* 레이니 cr+80(자체 캡): 기초 체력 비례 치명 패시브(3돌+ 6점당 0.1%, 최대 +60%)+1번 파츠 치명(+15%)로
+     만작 체력 투자 시 자체 100% 도달·초과 — 위키 "초과된 치명타는 파츠를 체력 보너스로 대체" 명시(2026-08-20
+     재크롤·사용자 확인). → 치명 강화 무가치·치피 유효. 2~4번 체보(extraHpPct+34.2)는 그 대체 결과. */
+  '레이니': B => ({cr:B.cr + 80, cd:B.cd + 30, extraAtkPct:rnd1(B.atkB + 60.6), extraHpPct:rnd1(B.hpB + 34.2), extraAtk:288, extraHp:0,   extraDef:0}),
 };
 /* 방어형(수비) 전용 팩 — 해당 인형 선택 시 '방어형 세팅' 체크박스(cDefMode)가 나타나 전환.
    안도리스 수비형(위키): 파츠 체보/방보/체/방(1번 4옵, 2~4번 체보/방보/체), 공용키는 유틸이라 스탯 보정 없음.

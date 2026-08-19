@@ -364,6 +364,12 @@ button.primary:hover{background:var(--support);color:var(--bg)}
   font-size:11.5px;padding:4px 2px;border-top:2px solid var(--cat,var(--line));
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+.ptile .peye{
+  display:flex;align-items:center;justify-content:center;gap:3px;cursor:pointer;
+  font-size:10px;color:var(--dim);padding:2px 2px 3px;border-top:1px solid var(--line-soft);
+}
+.ptile .peye input{margin:0;cursor:pointer}
+.ptile .peye:has(input:checked){color:var(--support);background:rgba(120,160,255,.08)}
 .ptile .px{
   position:absolute;top:2px;right:2px;width:18px;height:18px;line-height:16px;
   background:rgba(13,17,15,.75);border:1px solid var(--line);border-radius:3px;
@@ -2128,6 +2134,7 @@ let party = Array(PARTY_MAX).fill(null);   // dollId per party slot (선배치 =
 let partyMulti = 0;                         // 보스전 다중타겟 — 파티 공통(인형별 아님)
 let atkForce = 0;                           // 공격 적세(눈에는 눈 고정피해 파티버프) — 파티 공통
 let favorBuff = 0;                          // 접대속성(피해+30·치명+30 글로벌) — 파티 공통
+let eyeForce = {};                          // 개별 '눈에는 눈 우선 배치' — dollId→1 (파티 타일 체크)
 let activeSlot = -1;
 let dollId = null;                          // = party[activeSlot]
 let equipsByDoll = {};                      // dollId -> [6] inv item ids
@@ -2542,7 +2549,7 @@ function save(){
       if(pack) for(const k in pack) if(snap[k] === pack[k]) delete snap[k];
       profiles[dollId] = snap;
     }
-    localStorage.setItem(STORE_KEY, JSON.stringify({inv, seq, party, partyMulti, atkForce, favorBuff, activeSlot, equipsByDoll, targets, goals, mode, scenario, profiles}));
+    localStorage.setItem(STORE_KEY, JSON.stringify({inv, seq, party, partyMulti, atkForce, favorBuff, eyeForce, activeSlot, equipsByDoll, targets, goals, mode, scenario, profiles}));
   }catch(e){}
 }
 function load(){
@@ -2555,6 +2562,7 @@ function load(){
     if(d.partyMulti != null) partyMulti = d.partyMulti;
     if(d.atkForce != null) atkForce = d.atkForce;
     if(d.favorBuff != null) favorBuff = d.favorBuff;
+    if(d.eyeForce) eyeForce = d.eyeForce;
     if(d.equipsByDoll) equipsByDoll = d.equipsByDoll;
     if(typeof d.activeSlot === 'number') activeSlot = d.activeSlot;
     /* 구버전(단일 인형) 이전 */
@@ -2716,6 +2724,11 @@ function renderParty(){
       }
       switchDoll(i);
     };
+    /* 개별 '눈에는 눈 우선 배치' 체크 — 타일 클릭(전환)과 분리(stopPropagation) */
+    const eye = el(`<label class="peye" title="이 멤버에 '눈에는 눈'을 강제 배치(공격 적세 스택 — 보스전 피격 딜러 등). 딜 손실을 감수하고 삽입"><input type="checkbox"${eyeForce[id] ? ' checked' : ''}> 눈눈</label>`);
+    eye.onclick = (e) => e.stopPropagation();
+    eye.querySelector('input').onchange = (e) => { if(e.target.checked) eyeForce[id] = 1; else delete eyeForce[id]; save(); };
+    tile.appendChild(eye);
     host.appendChild(tile);
   });
   const cur = dollById(dollId);
@@ -4799,6 +4812,26 @@ async function assignCore(doll, exclude, pre){
     if(best){ asg[i] = best.id; used.add(best.id); }
   });
 
+  /* 개별 지정(eyeForce): 이 인형에 '눈에는 눈'을 반드시 1개 배치 — 공격 적세 스택용(보스전에 피격+피증 받는 메인딜러 포함).
+     이미 있으면 유지, 없으면 최소 손실 스왑으로 삽입(현상 게이트는 scoreOf phenoVal 최상위라 자동 우선 보존). 딜 손실 감수. */
+  const forceEye = (a) => {
+    if(!eyeForce[doll.id]) return a;
+    if(a.some(id => id != null && (invById(id).subs || []).some(s => s.name === '눈에는 눈'))) return a;
+    let ins = null, insScore = null;
+    for(let i = 0; i < SLOTS; i++){
+      if(locked.has(i)) continue;
+      const cat = doll.slots[i];
+      for(const it of inv){
+        if(it.type !== cat || blocked(it.id) || a.includes(it.id)) continue;
+        if(!(it.subs || []).some(s => s.name === '눈에는 눈')) continue;
+        const trial = a.slice(); trial[i] = it.id;
+        const s = scoreOf(trial);
+        if(!ins || lexGt(s, insScore)){ ins = trial; insScore = s; }
+      }
+    }
+    return ins || a;
+  };
+
   /* 단일 슬롯 스왑 힐클라임 (scoreOf엔 현상 보너스 포함) */
   function hillClimb(a){
     let improved = true, guard = 0;
@@ -4826,7 +4859,7 @@ async function assignCore(doll, exclude, pre){
      조건 충족·딜효과 있는 각 단계를 명시적 목표로 강제 배치 후 재-힐클라임하여 총 점수 개선 시 채택. */
   const dn = dollById(dollId);
   const effT = dn && PHENO_EFFECT[dn.name], reqT = dn && PHENO[dn.name];
-  if(!effT || !reqT) return asg;
+  if(!effT || !reqT) return forceEye(asg);
   const catOf = (a) => catLvFromKeys(lvMap(a.filter(Boolean)).lvByKey);
   const stageVal = (st) => {
     const e = effT[st]; if(!e) return 0;
@@ -4990,7 +5023,7 @@ async function assignCore(doll, exclude, pre){
       }
     }
   }
-  return best;
+  return forceEye(best);
 }
 
 /* 파티 내 타 멤버 장착분 = 사용 불가 */

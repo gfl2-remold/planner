@@ -2183,7 +2183,7 @@ const SCEN_DEFAULT = {
   atk:0, hp:0, def:0, coreAtk:0, coreHp:0, coreDef:0, love:9, manage:40, keys:6, vow:0,
   extraAtkPct:0, extraHpPct:0, extraDefPct:0, extraAtk:0, extraDef:0, extraHp:0, defConv:0, defMode:0, weapCal:6, vector:0, battleAtkPct:0,
   baseDmg:0, cr:20, cd:120, enemyDef:5000,
-  elem:'물리', aoe:1, single:1, act:1, oob:0,
+  elem:'물리', elemPinned:0, aoe:1, single:1, act:1, oob:0,
   range:'none',
 };
 /* 배포 기준 고정(만작 가정): 인형 성능을 뽑으려면 무조건 하는 항목들은 입력 제거·최대치 고정.
@@ -2612,9 +2612,11 @@ function loadProfile(){
      수동 캘리브레이션된 PRESETS 인형만 프리셋 플래그 우선. */
   if(dn && DOLL_KIT[dn.name] && !PRESETS[dollId]) Object.assign(scenario, DOLL_KIT[dn.name]);
   if(dn && dn.elem){
-    if(DOLL_ELEM_FLEX.has(dn.name))
-      scenario.elem = flexPin(dn, saved && saved.elem) || flexMatchElem(dn);   /* 표시 = 파티속성 매칭(회피는 배치 로직 전담) */
-    else scenario.elem = dn.elem;
+    if(DOLL_ELEM_FLEX.has(dn.name)){
+      /* 수동 드롭다운 변경(elemPinned)만 존중 — 옛 자동값이 프로필에 남아도 무시하고 파티속성 매칭으로 표시 */
+      scenario.elemPinned = (saved && saved.elemPinned) ? 1 : 0;
+      scenario.elem = (scenario.elemPinned && flexPin(dn, saved.elem)) || flexMatchElem(dn);
+    } else scenario.elem = dn.elem;
   }
   applyDollBase(dn, src);               /* 위키 스탯 + 표준 파츠팩(미입력 필드만) */
   Object.assign(scenario, FIXED_MAX);   /* 만작 기준 고정 — 낡은 프로필·프리셋 값 무시 */
@@ -4319,6 +4321,9 @@ function renderTargets(){
     save(); syncScenarioInputs();
   };
   bind('cElem','elem',true); bind('cRange','range',true);
+  /* 드롭다운 수동 변경 = 속성 고정(flex 인형이 파티속성 자동매칭을 안 덮게) */
+  const _elemSel = document.getElementById('cElem');
+  if(_elemSel) _elemSel.addEventListener('change', () => { scenario.elemPinned = 1; save(); });
   bind('cAoe','aoe'); bind('cSingle','single'); bind('cAct','act'); bind('cOob','oob');
   const ec = document.getElementById('cEye');
   if(ec) ec.onchange = () => { atkForce = ec.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
@@ -5211,7 +5216,7 @@ async function partyAutoAssign(){
     if(doll && DOLL_KIT[doll.name] && !PRESETS[id]) Object.assign(scenario, DOLL_KIT[doll.name]);
     if(doll && doll.elem){
       if(DOLL_ELEM_FLEX.has(doll.name))
-        scenario.elem = flexPin(doll, profiles[id] && profiles[id].elem) || flexWorkElem(doll, globallyUsed);
+        scenario.elem = ((profiles[id] && profiles[id].elemPinned && flexPin(doll, profiles[id].elem)) || flexWorkElem(doll, globallyUsed));
       else scenario.elem = doll.elem;
     }
     applyDollBase(doll, srcA);

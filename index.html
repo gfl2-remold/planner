@@ -351,8 +351,8 @@ button.primary:hover{background:var(--support);color:var(--bg)}
 .ptile[draggable=true]{cursor:grab}
 .ptile.dragging{opacity:.4}
 .ptile.dragover{border-color:var(--support);box-shadow:0 0 0 2px var(--support)}
-.ptile.domelem{outline:2px solid var(--dom);outline-offset:1px}
-.ptile.domelem .face::after{content:'';position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--dom);box-shadow:0 0 0 1.5px var(--panel)}
+.party.party-dom{position:relative;border:1.5px solid var(--dom);border-radius:9px;padding:11px 11px 7px}
+.party-domlabel{position:absolute;top:-10px;left:11px;background:var(--panel);padding:0 6px;font-size:11px;font-weight:700;color:var(--dom);letter-spacing:.3px}
 .ptile .face{
   position:relative;
   width:92px;height:92px;display:flex;align-items:center;justify-content:center;
@@ -2709,11 +2709,6 @@ function renderParty(){
       `<div class="pname">${i+1}. ${d.name}</div>` +
       `<div class="px" title="파티에서 제외">✕</div></div>`);
     tile.style.setProperty('--cat', CATS[d.cat].color);
-    /* 파티 지배 속성 멤버 = 속성색 테두리(흑로자 등 flex는 제외 → 비지배가 시각적으로 튐) */
-    if(dom && d.elem === dom && !DOLL_ELEM_FLEX.has(d.name)){
-      tile.style.setProperty('--dom', ELEM_COLOR[dom] || 'var(--dim)');
-      tile.classList.add('domelem');
-    }
     tile.ondragstart = (e) => { dragSrc = i; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); tile.classList.add('dragging'); };
     tile.ondragend = () => { tile.classList.remove('dragging'); document.querySelectorAll('.ptile.dragover').forEach(t => t.classList.remove('dragover')); dragSrc = null; };
     dropOn(tile, i);
@@ -2739,6 +2734,12 @@ function renderParty(){
     tile.appendChild(eye);
     host.appendChild(tile);
   });
+  /* 파티 전체를 지배 속성색 프레임으로 묶음(개별 아님) — '이 파티는 X 속성' 시각화 */
+  host.classList.toggle('party-dom', !!dom);
+  if(dom){
+    host.style.setProperty('--dom', ELEM_COLOR[dom] || 'var(--dim)');
+    host.appendChild(el(`<div class="party-domlabel">${dom} 파티</div>`));
+  }
   const cur = dollById(dollId);
   document.getElementById('activeName').textContent = cur ? `선택: ${cur.name} (${CATS[cur.cat].name})` : '';
 }

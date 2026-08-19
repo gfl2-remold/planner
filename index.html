@@ -2613,7 +2613,7 @@ function loadProfile(){
   if(dn && DOLL_KIT[dn.name] && !PRESETS[dollId]) Object.assign(scenario, DOLL_KIT[dn.name]);
   if(dn && dn.elem){
     if(DOLL_ELEM_FLEX.has(dn.name))
-      scenario.elem = flexPin(dn, saved && saved.elem) || flexWorkElem(dn, new Set());   /* 유효 수동 고정 없으면 파티속성 자동(흑로자=회피) */
+      scenario.elem = flexPin(dn, saved && saved.elem) || flexMatchElem(dn);   /* 표시 = 파티속성 매칭(회피는 배치 로직 전담) */
     else scenario.elem = dn.elem;
   }
   applyDollBase(dn, src);               /* 위키 스탯 + 표준 파츠팩(미입력 필드만) */
@@ -4474,6 +4474,10 @@ function bestNonDomElem(dom, used){
    공진은 표시용이라 실딜은 항상 실속성(위상)으로 환원. 수동 고정은 호출부에서 우선 처리. */
 /* 유효한 수동 속성 픽만 통과 — 공진(표시전용)·흑로자의 물리(공진=물리제외)는 무효 → 자동 배정으로 넘김 */
 function flexPin(doll, e){ return (e && e !== '공진' && !(doll.name === 'OTs-14' && e === '물리')) ? e : null; }
+/* 표시/드롭다운 기본 = 파티 속성 매칭(오인 방지 — 흑로자도 파티속성으로 표시). 회피는 리몰딩 배치(partyAutoAssign) 전담. */
+function flexMatchElem(doll){
+  return partyDominantElem() || ((doll.elem && doll.elem !== '공진') ? doll.elem : (bestNonDomElem(null, new Set()) || '빙결'));
+}
 function flexWorkElem(doll, used){
   const dom = partyDominantElem();
   if(doll.name === 'OTs-14')

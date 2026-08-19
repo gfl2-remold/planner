@@ -4837,7 +4837,9 @@ function scoreOf(itemIds){
       return [phenoScore, coopLv, pkLv, mult, total];
     }
     /* 현상 딜값(꽃 +12% 등, 조건 충족 활성 단계의 dmg+atk 합) = 최상위 — 공격 스탯 우위로도 꽃 12%는 못 넘음(사용자 규칙).
-       그 아래 피칼전 → 위키 추천 매칭 → mult → 총수치. */
+       그 아래 피칼전 → mult → 위키 추천 매칭 → 총수치.
+       (2026-08-20) 추천을 mult 아래로 강등: 추천이 상위일 때 가중치 높은 서브(마스터3·태세2)가 실딜 우위
+       속성서브를 사전식으로 차단 — 흑로자 와일드카드 속성 스택 봉쇄·수동빌드 열세의 근본 원인. 추천은 동점 타이브레이커. */
     const dnp = dollById(dollId);
     const clp = catLvFromKeys(lvByKey);
     const pb = dnp ? phenoBuckets(clp, dnp.name, scenario) : {};
@@ -4857,7 +4859,7 @@ function scoreOf(itemIds){
         }
       });
     }
-    return [phenoVal, pkLv, recoScoreOf(itemIds), mult, total];
+    return [phenoVal, pkLv, mult, recoScoreOf(itemIds), total];
   }
   const sc = targets.map(key => {
     if(!key) return 0;

@@ -2091,7 +2091,7 @@ const DOLLS = [
   {id:23, name:'콜펜', cat:'support', elem:'탁류', slots:['support','support','support','support','bulwark','bulwark'], gun:1009, love:[[15,77,0],[0,88,31],[26,0,72],[33,110,0]]},
   {id:26, name:'크세니아', cat:'support', elem:'연소', slots:['support','support','support','bulwark','bulwark','sentinel'], gun:1036, love:[[16,79,0],[0,91,28],[27,0,66],[35,113,0]]},
   {id:41, name:'플로렌스', cat:'support', elem:'탁류', slots:['support','support','support','bulwark','bulwark','sentinel'], gun:1064, love:[[20,87,0],[0,99,34],[35,0,80],[45,124,0]]},
-  {id:56, name:'OTs-14', cat:'sentinel', elem:'물리', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1074, love:[[23,86,0],[0,98,34],[40,0,79],[52,122,0]]},
+  {id:56, name:'OTs-14', cat:'sentinel', elem:'공진', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1074, love:[[23,86,0],[0,98,34],[40,0,79],[52,122,0]]},
   {id:4, name:'경구', cat:'sentinel', elem:'연소', slots:['sentinel','sentinel','sentinel','vanguard','vanguard','bulwark'], gun:1027, love:[[23,82,0],[0,93,32],[40,0,76],[52,117,0]]},
   {id:2, name:'네메시스', cat:'sentinel', elem:'산성', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1008, love:[[20,71,0],[0,82,28],[35,0,66],[45,102,0]]},
   {id:57, name:'네메시스·연광', cat:'sentinel', elem:'산성', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1075, love:[[24,84,0],[0,96,33],[41,0,78],[53,120,0]]},
@@ -2149,6 +2149,7 @@ const ELEMS = ['연소','빙결','산성','탁류','전도','물리'];
 const ELEM_COLOR = {
   '연소':'#EA5A44', '빙결':'#7FD0EC', '탁류':'#3E77E6',
   '전도':'#E9CB3E', '물리':'#E8EAE6', '산성':'#AE7CE0',
+  '공진':'#4FE0B0',   /* OTs-14 전용 표시 속성(물리·위상과 별개, ELEMS 밖 = 딜 매칭 대상 아님) */
 };
 /* 옵션명 첫 토큰이 속성이면 그 속성색, 아니면 null */
 const elemColorOf = (name) => ELEM_COLOR[String(name || '').split(' ')[0]] || null;
@@ -2610,7 +2611,11 @@ function loadProfile(){
   /* DOLL_KIT(단일/범위/액티브/턴외) = 위키 추천 유도 공격 프로필 — 낡은 자동저장 프로필이 못 덮게 강제.
      수동 캘리브레이션된 PRESETS 인형만 프리셋 플래그 우선. */
   if(dn && DOLL_KIT[dn.name] && !PRESETS[dollId]) Object.assign(scenario, DOLL_KIT[dn.name]);
-  if(dn && dn.elem) scenario.elem = (DOLL_ELEM_FLEX.has(dn.name) && saved && saved.elem) ? saved.elem : dn.elem;
+  if(dn && dn.elem){
+    if(DOLL_ELEM_FLEX.has(dn.name))
+      scenario.elem = (saved && saved.elem) ? saved.elem : flexWorkElem(dn, new Set());   /* 수동 고정 없으면 파티속성 자동(흑로자=회피) */
+    else scenario.elem = dn.elem;
+  }
   applyDollBase(dn, src);               /* 위키 스탯 + 표준 파츠팩(미입력 필드만) */
   Object.assign(scenario, FIXED_MAX);   /* 만작 기준 고정 — 낡은 프로필·프리셋 값 무시 */
   syncScenarioInputs();
@@ -2749,7 +2754,7 @@ function openPicker(slotIdx){
   const grid = document.getElementById('pickerGrid');
   grid.innerHTML = '';
   /* 속성별 섹션(헤더=속성색) → 각 섹션 내부는 병종순, 카드 테두리는 병종색 유지 */
-  const groups = ELEMS.concat(['']);   // 마지막은 속성 미상 예비군
+  const groups = ELEMS.concat(['공진', '']);   // 공진(OTs-14 표시 속성) + 마지막은 속성 미상 예비군
   groups.forEach(e => {
     const list = DOLLS.filter(d => (d.elem || '') === e && !party.includes(d.id));
     if(!list.length) return;
@@ -4465,6 +4470,14 @@ function bestNonDomElem(dom, used){
   for(const e in cnt){ if(cnt[e] > bestN){ best = e; bestN = cnt[e]; } }
   return best;
 }
+/* elem-flex 딜러의 실딜 속성 자동 배정 — 흑로자(OTs-14 공진)=지배 속성 회피(경합 양보), 그 외(경구)=파티 속성 매칭.
+   공진은 표시용이라 실딜은 항상 실속성(위상)으로 환원. 수동 고정은 호출부에서 우선 처리. */
+function flexWorkElem(doll, used){
+  const dom = partyDominantElem();
+  if(doll.name === 'OTs-14')
+    return bestNonDomElem(dom, used) || bestNonDomElem(null, used) || '빙결';
+  return dom || (doll.elem && doll.elem !== '공진' ? doll.elem : '빙결');
+}
 let PE = [];   // dmgMult에서 채우는 파티 딜러 속성 캐시
 
 function dmgEffect(kind, cat, name, val){
@@ -5191,14 +5204,9 @@ async function partyAutoAssign(){
     /* KIT 강제(낡은 프로필 오염 차단, 프리셋 인형 예외) + 딜 속성 = 인형 고유값 강제 + 만작 기준 고정 */
     if(doll && DOLL_KIT[doll.name] && !PRESETS[id]) Object.assign(scenario, DOLL_KIT[doll.name]);
     if(doll && doll.elem){
-      let e = (DOLL_ELEM_FLEX.has(doll.name) && profiles[id] && profiles[id].elem) ? profiles[id].elem : doll.elem;
-      /* 흑로자(OTs-14 공진) = 파티 지배 속성 회피 최적화. 수동 속성 고정(profiles.elem) 없을 때만 자동:
-         지배 속성템은 전문 딜러에게 양보하고, 미소모 인벤 강화/강타가 제일 많은 비경합 위상으로 개조. */
-      if(doll.name === 'OTs-14' && !(profiles[id] && profiles[id].elem)){
-        const alt = bestNonDomElem(partyDominantElem(), globallyUsed);
-        if(alt) e = alt;
-      }
-      scenario.elem = e;
+      if(DOLL_ELEM_FLEX.has(doll.name))
+        scenario.elem = (profiles[id] && profiles[id].elem) ? profiles[id].elem : flexWorkElem(doll, globallyUsed);
+      else scenario.elem = doll.elem;
     }
     applyDollBase(doll, srcA);
     Object.assign(scenario, FIXED_MAX);

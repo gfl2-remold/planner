@@ -4743,8 +4743,10 @@ function dmgMult(lvByKey){
   const crBase = ((_cl && CRIT_LOCK[_cl.name] != null) ? CRIT_LOCK[_cl.name] : (S.cr + FS.bondCr + FS.wCr + ((_cl && DOLL_CRIT_OFFSET[_cl.name]) || 0))) + favorCr;
   const cdBase = S.cd + FS.bondCd + FS.wCd;
   /* 치명타 100% 체크(critFull, 파티 공통): 부족분만 100으로 올림 — 실전 치명 버프 가정. 피증은 없음(접대속성과
-     독립). 이미 100 이상(과치명)은 raw 유지 → 오버크릿 전환 계산 불변. 올림 상태에선 치명 강화 자동 무가치. */
-  const crB2 = critFull ? Math.max(crBase, 100) : crBase;
+     독립). 이미 100 이상(과치명)은 raw 유지 → 오버크릿 전환 계산 불변. 올림 상태에선 치명 강화 자동 무가치.
+     음수 오프셋 인형(웰로드 -100 = 패시브 치명 봉인)은 버프로도 못 올리므로 올림 제외 — 가짜 치명 방지. */
+  const crSealed = _cl && (DOLL_CRIT_OFFSET[_cl.name] || 0) < 0;
+  const crB2 = (critFull && !crSealed) ? Math.max(crBase, 100) : crBase;
   const cr0raw = Math.max(0, crB2), cr1raw = Math.max(0, crB2 + b.cr);
   const cr0 = Math.min(100, cr0raw), cr1 = Math.min(100, cr1raw);
   /* 오버크릿 전환 인형(추화): 100% 초과 치명률 → 치명피해 1:1 가산 → 치명 강화(b.cr)가 캡 넘어도 치피로 유효 */
@@ -4786,7 +4788,10 @@ function recoScoreOf(itemIds){
     if(!dn || DOLL_OVERCRIT.has(dn.name)) return false;
     const crB = (CRIT_LOCK[dn.name] != null) ? CRIT_LOCK[dn.name]
       : (scenario.cr + (FS.bondCr || 0) + (FS.wCr || 0) + (DOLL_CRIT_OFFSET[dn.name] || 0)) + (favorBuff ? 30 : 0);
-    return (critFull ? Math.max(crB, 100) : crB) >= 100;   /* 치명타 100% 체크 시 올림 후 판정 */
+    /* 올림 판정: 음수 오프셋(웰로드 치명 봉인)은 올림 제외. 봉인 인형은 치명 자체가 0 고정 → 치명 강화 추천 제외 */
+    const sealed = (DOLL_CRIT_OFFSET[dn.name] || 0) < 0;
+    if(sealed) return true;
+    return ((critFull && !sealed) ? Math.max(crB, 100) : crB) >= 100;
   })();
   const cnt = {}; let s = 0;
   itemIds.forEach(id => {

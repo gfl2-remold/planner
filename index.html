@@ -3201,7 +3201,7 @@ function openInvReport(){
   /* 명품 기준 = 딜 주옵 + 속성 강타 Lv3 — 강타는 치피 계열이라 고밸류(사용자 기준). 강화3은 명품 아님 */
   const DMG_MAIN = new Set(['공격 강화','단일 특화','범위 특화','왕좌 분쇄','단일 중격','범위 강타','강타 강화','참수 칼날','생명 강화','전의 고양','공격 협동','생명 협동']);
   const gems = inv.filter(it => DMG_MAIN.has(it.main) && it.subs.some(s => /강타$/.test(s.name) && s.lv >= 3));
-  const UTIL_SUB = /저항$|대책$|휴식$|정화 환류|눈에는 눈|진동 충격|균형 파괴 추격/;
+  const UTIL_SUB = /저항$|대책$|휴식$|정화 환류|진동 충격|균형 파괴 추격/;   /* 눈에는 눈 제외 — 반격 딜+스택 유효, 정리후보 아님 */
   const utilOnly = inv.filter(it => it.subs.length && it.subs.every(s => UTIL_SUB.test(s.name)));
 
   /* ── 1) 스탯 타일 ── */
@@ -4432,6 +4432,10 @@ function dmgEffect(kind, cat, name, val){
     case '백병전 엘리트': return {dmg: val * (S.range === 'melee' ? 1 : 0)};
     case '저격 엘리트': return {dmg: val * (S.range === 'snipe' ? 1 : 0)};
     case '균형 파괴 추격': return null;   /* 안정붕괴 삭제(현 메타 안정수치 계산 안 함) → 무가치 필러 */
+    /* 눈에는 눈: 방어 보조지만 반격 고정피해(피격 시 최대 체력 N%, 공격력 100% 상한)+보스 버프스택 유틸 —
+       죽은 방어 보조(저항·대책)와 달리 딜 기여가 있음(사용자 지적). 현상 게이트(예: 클루카이 불워크4)를 채울 때
+       死유틸 대신 눈에는 눈을 우선하도록 소량 dmg 크레딧(휴리스틱, 피격 빈도·스택 시너지는 미모델링이라 보수적). */
+    case '눈에는 눈': return {dmg: val * 0.1};
     case '피와 칼의 전환': return atkPen ? {atkFlat: FS.hp * val/100} : null;   /* 체력→공격 flat. 관통항↑(스프링필드 체력몰빵→큰 공격전환, 르미_ 실측). 류시는 관통도 체력이라 무의미 */
     case '칼과 피의 공명': return hpMain ? {hpFlat: FS.atk * val/100} : null;  /* 공격→체력 flat. 계수 배수↑(공격 계수 인형엔 무가치) */
   }

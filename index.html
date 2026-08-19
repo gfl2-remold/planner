@@ -4553,7 +4553,10 @@ function dmgEffect(kind, cat, name, val){
   const first = name.split(' ')[0];
   if(ELEMS.includes(first)){
     if(name.endsWith('강타')) return {cd: val * em(name)};
-    if(name.endsWith('협동')) return null;   /* 파티 버프 → partyCoopPool에서 수혜 딜러에게 크레딧(self 이중계산 방지) */
+    /* 협동: 파티 버프 실크레딧은 partyCoopPool(수혜자 측) 전담 — 여기선 ±ε 타이브레이커만.
+       착용자 본인 점수엔 협동이 0이라 죽은 서브끼리 동점 → 인벤 순서로 산성 협동을 무작위 채택하던 버그
+       (2026-08-20 픽스처 시뮬 8건 적발). 파티속성 협동 +0.01, 비매칭 -0.01로 방향만 제시(딜 왜곡 없음). */
+    if(name.endsWith('협동')) return {dmg: (PE.length && PE.includes(first)) ? 0.01 : -0.01};
     if(name.endsWith('강화')) return {dmg: val * em(name)};       /* 자기 속성 강화 */
   }
   return null;

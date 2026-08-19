@@ -1491,6 +1491,8 @@ const DOLL_ELEM_FLEX = new Set(['경구', 'OTs-14']);
    묶이지 않음. 채점 규칙(실측/유저 확정): 강화(피해%)는 전 속성 중 최고 1속성만, 강타(치명피해)도 전 속성 중 최고
    1속성만, 두 타입은 서로 다른 속성이어도 동시 적용(예: 탁류 강화5 + 전도 강타5). dmgBuckets에서 전담 처리. */
 const DOLL_RESONANCE = new Set(['OTs-14']);
+/* 실효 치명 캡 — 기본 치명이 이 값 이상이면 실전상 100%로 간주(치명 강화 무가치·추천 제외). 사용자 규칙. */
+const CR_NEAR_CAP = 95;
 const scaleOf = () => { const d = dollById(dollId); return (d && DOLL_SCALE[d.name]) || 'atk'; };
 /*DOLLKIT_START*/
 /* 인형별 위키 추천 리몰딩(namu 성장 데이터, 2026-08-12 크롤). m=추천 주옵션{이름:슬롯수}, a=기타 유효 주옵션, s=추천 보조(자속 포함).
@@ -4736,7 +4738,10 @@ function dmgMult(lvByKey){
   const crBase = ((_cl && CRIT_LOCK[_cl.name] != null) ? CRIT_LOCK[_cl.name] : (S.cr + FS.bondCr + FS.wCr + ((_cl && DOLL_CRIT_OFFSET[_cl.name]) || 0))) + favorCr;
   const cdBase = S.cd + FS.bondCd + FS.wCd;
   const cr0raw = Math.max(0, crBase), cr1raw = Math.max(0, crBase + b.cr);
-  const cr0 = Math.min(100, cr0raw), cr1 = Math.min(100, cr1raw);
+  /* 실효 치명 캡 95(사용자 규칙 2026-08-20): 95% 이상이면 실전(팀버프·약점·변동)에서 사실상 100% —
+     잔여 5%p에 치명 강화 서브를 쓰는 건 낭비이므로 100으로 간주해 자동 무가치화. 오버크릿 전환은 raw 기준 유지. */
+  const effCr = (r) => r >= CR_NEAR_CAP ? 100 : Math.min(100, r);
+  const cr0 = effCr(cr0raw), cr1 = effCr(cr1raw);
   /* 오버크릿 전환 인형(추화): 100% 초과 치명률 → 치명피해 1:1 가산 → 치명 강화(b.cr)가 캡 넘어도 치피로 유효 */
   const oc = _cl && DOLL_OVERCRIT.has(_cl.name);
   const cd0 = cdBase + (oc ? Math.max(0, cr0raw - 100) : 0);
@@ -4776,7 +4781,7 @@ function recoScoreOf(itemIds){
     if(!dn || DOLL_OVERCRIT.has(dn.name)) return false;
     const crB = (CRIT_LOCK[dn.name] != null) ? CRIT_LOCK[dn.name]
       : (scenario.cr + (FS.bondCr || 0) + (FS.wCr || 0) + (DOLL_CRIT_OFFSET[dn.name] || 0)) + (favorBuff ? 30 : 0);
-    return crB >= 100;
+    return crB >= CR_NEAR_CAP;   /* 실효 캡 95(사용자 규칙) — 95%대 치명도 치명 강화 추천 제외 */
   })();
   const cnt = {}; let s = 0;
   itemIds.forEach(id => {

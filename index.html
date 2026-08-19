@@ -1486,6 +1486,10 @@ const DOLL_OVERCRIT = new Set(['추화', '섹스턴스']);   /* 섹스턴스: "�
 /* 딜 속성 가변 인형: 경구=도약키 장착 시 연소·미장착 물리덱 운용 가능, OTs-14=모든 속성.
    이들은 elem 강제 제외 — 기본은 자기 속성, 사용자가 딜 속성 드롭다운으로 바꾸면 프로필로 유지. */
 const DOLL_ELEM_FLEX = new Set(['경구', 'OTs-14']);
+/* 공진 와일드카드: 흑로자(OTs-14) 공진은 "물리 제외 최적 속성으로 취급" → 속성 강화/강타 서브가 단일 고정속성에
+   묶이지 않음. 채점 규칙(실측/유저 확정): 강화(피해%)는 전 속성 중 최고 1속성만, 강타(치명피해)도 전 속성 중 최고
+   1속성만, 두 타입은 서로 다른 속성이어도 동시 적용(예: 탁류 강화5 + 전도 강타5). dmgBuckets에서 전담 처리. */
+const DOLL_RESONANCE = new Set(['OTs-14']);
 const scaleOf = () => { const d = dollById(dollId); return (d && DOLL_SCALE[d.name]) || 'atk'; };
 /*DOLLKIT_START*/
 /* 인형별 위키 추천 리몰딩(namu 성장 데이터, 2026-08-12 크롤). m=추천 주옵션{이름:슬롯수}, a=기타 유효 주옵션, s=추천 보조(자속 포함).
@@ -4485,8 +4489,10 @@ function flexMatchElem(doll){
 }
 function flexWorkElem(doll, used){
   const dom = partyDominantElem();
+  /* 공진(흑로자): 서브 채점이 와일드카드(dmgBuckets)라 배치 속성은 표시와 동일하게 파티 매칭.
+     경합 양보는 와일드카드의 지배속성 소프트 페널티가 전담(하드 회피 폐기 — 사용자 지시). */
   if(doll.name === 'OTs-14')
-    return bestNonDomElem(dom, used) || bestNonDomElem(null, used) || '빙결';
+    return dom || bestNonDomElem(null, used) || '빙결';
   return dom || (doll.elem && doll.elem !== '공진' ? doll.elem : '빙결');
 }
 let PE = [];   // dmgMult에서 채우는 파티 딜러 속성 캐시
@@ -4561,15 +4567,35 @@ function lvMap(itemIds){
 
 function dmgBuckets(lvByKey){
   const b = {atk:0, atkFlat:0, hpPct:0, hpFlat:0, dmg:0, cr:0, cd:0, defPct:0};
+  const _rd = dollById(dollId);
+  const reson = !!(_rd && DOLL_RESONANCE.has(_rd.name));   /* 공진 와일드카드 채점 대상? */
+  const elemDmg = {}, elemCd = {};   /* 공진용: 속성별 강화(dmg%)/강타(cd) 누적 → 각 타입 최고 1속성만 반영 */
   for(const key in lvByKey){
     const o = getOptByKey(key);
     if(!o) continue;
     const eff = Math.min(lvByKey[key], o.v.length);
     const val = o.v[eff-1];
     const [kind, cat, name] = key.split('|');
+    const first = name.split(' ')[0];
+    if(reson && kind === 'S' && ELEMS.includes(first) && (name.endsWith('강화') || name.endsWith('강타'))){
+      /* dmgEffect의 단일속성 게이팅(em) 우회 — 아래에서 타입별 최고속성만 합산(공진은 속성 무관 활성) */
+      if(name.endsWith('강화')) elemDmg[first] = (elemDmg[first]||0) + val;
+      else                      elemCd[first]  = (elemCd[first] ||0) + val;
+      continue;
+    }
     const e = dmgEffect(kind, cat, name, val);
     if(!e) continue;
     for(const k in e) b[k] += e[k];
+  }
+  if(reson){
+    /* 파티 지배속성(예: 빙결팟의 빙결)은 하드 제외하지 않되 미세 페널티 → 동률이면 비지배 속성 아이템을
+       택해 전문 딜러(헬렌 등)에게 경합 아이템을 양보, 수치가 확실히 크면 지배속성도 그대로 사용(사용자 지시). */
+    const _dom = partyDominantElem();
+    const mx = obj => { let m = 0, mk = null;
+      for(const k in obj){ const pv = obj[k] - (k === _dom ? 0.05 : 0); if(pv > m){ m = pv; mk = k; } }
+      return mk ? obj[mk] - (mk === _dom ? 0.01 : 0) : 0; };
+    b.dmg += mx(elemDmg);   /* 강화(피해%): 최고 1속성만 */
+    b.cd  += mx(elemCd);    /* 강타(치명피해): 최고 1속성만 — 강화와 별개 타입이라 동시 적용 */
   }
   return b;
 }
@@ -4738,7 +4764,9 @@ function recoScoreOf(itemIds){
            속성을 바꾸면 위키의 연소 강화 추천이 물리 강화 추천으로 치환돼야 함. 현재 딜 속성 일치 시만 점수. */
         const suffix = sn.slice(first.length + 1);
         const hasType = R.s.some(x => { const f = x.split(' ')[0]; return ELEMS.includes(f) && x.slice(f.length + 1) === suffix; });
-        if(hasType && first === scenario.elem) s += 1;
+        /* 공진(흑로자): 모든 속성 강화/강타가 유효 → 단일속성 게이팅 면제(물리 제외) */
+        const reson = DOLL_RESONANCE.has(dn.name) && first !== '물리' && (sn.endsWith('강화') || sn.endsWith('강타'));
+        if((hasType || reson) && (first === scenario.elem || reson)) s += 1;
       } else if(R.s.includes(sn)) s += 1;
     });
   });

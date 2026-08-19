@@ -4440,7 +4440,15 @@ function partyTargetElems(){
     if(id == null) continue;
     const d = dollById(id);
     if(!d) continue;
-    const e = (profiles[id] || PRESETS[id] || {}).elem;
+    /* flex(흑로자·경구)는 실효 속성으로 환원 — 프로필의 stale elem(핀 아님)이나 '공진'이 새면
+       협동 매칭이 엉뚱한 속성(연소 등)으로 오염됨(2026-08-20 실증: 탁류팟에서 연소 협동 채택).
+       비-flex는 배치에서 항상 d.elem 강제이므로 d.elem이 정답(프로필 값 무시). */
+    let e;
+    if(DOLL_ELEM_FLEX.has(d.name)){
+      const p = profiles[id] || PRESETS[id] || {};
+      e = (p.elemPinned && flexPin(d, p.elem)) || flexMatchElem(d);
+    } else e = d.elem;
+    if(e === '공진') e = null;
     if(firstElem == null && e) firstElem = e;
     if(d.cat === 'support') continue;            // 딜러 속성만 집계
     if(e) dealer.push(e);

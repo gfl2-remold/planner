@@ -2330,7 +2330,9 @@ const PRESETS = {
      사이클: 보스전 결전기×2 반복(범위·산성), 강산 주입 디버프 딜(턴외성) → 턴외✓. */
   11: {atk:1031, hp:2226, def:592, coreAtk:252, coreHp:679, coreDef:217, love:9, manage:36, keys:6, vow:1,
        extraAtkPct:70.6, extraHpPct:0, extraAtk:288, baseDmg:30, cr:95, cd:150, battleAtkPct:8,
-       weapCal:6, elem:'산성', aoe:1, single:1, act:1, oob:1, range:'none'},
+       weapCal:6, elem:'산성', aoe:1, single:0, act:1, oob:1, range:'none'},
+       /* single:0 — 결전기×2 범위 사이클, 일반공격 미사용(린드와 동일 근거). 기존 1은 프리셋 오기(KIT과 불일치,
+          단일 중격 死메인을 실딜로 오계산 → 피칼전 캐리어로 오채택. 2026-08-20 사용자 발견) */
   /* 바스티 — 서포터. (확인 필요: 파츠 공공치치 돌려쓰기 가정, 기존 피해% 대략치, 공용키 구성).
      기본 910/2348/방649 (기본 공보5+체보5), 코어 +224/+714/+238.
      extraAtkPct 69.6 = 기본5 + 현상 꽃망울 공체4 + 파츠45.6 + 공용키15 / extraHpPct 9 = 기본 체보5 + 꽃망울4,

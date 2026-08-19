@@ -2575,6 +2575,7 @@ function load(){
     if(d.atkForce != null) atkForce = d.atkForce;
     if(d.favorBuff != null) favorBuff = d.favorBuff;
     if(d.critFull != null) critFull = d.critFull;
+    if(favorBuff && critFull) critFull = 0;   /* 상호배타 — 낡은 저장에 둘 다 켜져 있으면 접대 우선 */
     if(d.eyeForce) eyeForce = d.eyeForce;
     if(d.equipsByDoll) equipsByDoll = d.equipsByDoll;
     if(typeof d.activeSlot === 'number') activeSlot = d.activeSlot;
@@ -4338,11 +4339,12 @@ function renderTargets(){
   const ec = document.getElementById('cEye');
   if(ec) ec.onchange = () => { atkForce = ec.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
   const fc = document.getElementById('cFavor');
-  if(fc) fc.onchange = () => { favorBuff = fc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
+  const cc = document.getElementById('cCrit100');
+  /* 접대속성 ↔ 치명타 100% 상호배타 토글(치명 처리 중복 방지) — 한쪽 켜면 다른 쪽 해제 */
+  if(fc) fc.onchange = () => { favorBuff = fc.checked ? 1 : 0; if(favorBuff){ critFull = 0; if(cc) cc.checked = false; } save(); renderAll(); };   /* 파티 공통 */
+  if(cc) cc.onchange = () => { critFull = cc.checked ? 1 : 0; if(critFull){ favorBuff = 0; if(fc) fc.checked = false; } save(); renderAll(); };   /* 파티 공통 */
   const mc = document.getElementById('cMulti');
   if(mc) mc.onchange = () => { partyMulti = mc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
-  const cc = document.getElementById('cCrit100');
-  if(cc) cc.onchange = () => { critFull = cc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
   updateFinal();
 
   document.getElementById('autoBtn').onclick = autoAssign;

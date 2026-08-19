@@ -672,6 +672,7 @@ button.danger:hover{border-color:var(--bad)}
           <label title="현상 '꽃' 등 다중타겟 조건 효과 유효화 · 파티 공통 설정">2타겟 이상</label><input id="cMulti" type="checkbox">
           <label title="공격 적세 = 보스가 고정피해를 받을 때마다 아군 전체 피해 증가(파티 공통). 켜면 고정피해 소스 '눈에는 눈'을 인형당 1개씩 최대한 배치(방해 없을 때만 편입, 강제 아님)">공격 적세 사용<br>(눈에는 눈 배치)</label><input id="cEye" type="checkbox">
           <label title="속성 접대 파티 = 피해량 +30%·치명률 +30% 글로벌(파티 공통). 치명 만작 딜러는 치명률 100% 캡에 걸려 치명 강화 무가치화(치피 가치↑). 치명 캡 안 되는 인형(추화·섹스턴스 오버크릿)은 치명 강화 유지">접대속성<br>(치명 강화 무가치)</label><input id="cFavor" type="checkbox">
+          <label title="실전 치명 버프 가정 — 치명률이 부족한 인형만 100%로 올림(파티 공통). 접대속성과 달리 피해량 +30%는 없음. 이미 100% 이상(과치명)은 그대로 유지 → 오버크릿 전환 계산 불변. 켜면 치명 강화가 자동 무가치화">치명타 100%<br>(부족분 올림)</label><input id="cCrit100" type="checkbox">
         </div>
 
         <details class="cfg-more">
@@ -1491,8 +1492,6 @@ const DOLL_ELEM_FLEX = new Set(['경구', 'OTs-14']);
    묶이지 않음. 채점 규칙(실측/유저 확정): 강화(피해%)는 전 속성 중 최고 1속성만, 강타(치명피해)도 전 속성 중 최고
    1속성만, 두 타입은 서로 다른 속성이어도 동시 적용(예: 탁류 강화5 + 전도 강타5). dmgBuckets에서 전담 처리. */
 const DOLL_RESONANCE = new Set(['OTs-14']);
-/* 실효 치명 캡 — 기본 치명이 이 값 이상이면 실전상 100%로 간주(치명 강화 무가치·추천 제외). 사용자 규칙. */
-const CR_NEAR_CAP = 95;
 const scaleOf = () => { const d = dollById(dollId); return (d && DOLL_SCALE[d.name]) || 'atk'; };
 /*DOLLKIT_START*/
 /* 인형별 위키 추천 리몰딩(namu 성장 데이터, 2026-08-12 크롤). m=추천 주옵션{이름:슬롯수}, a=기타 유효 주옵션, s=추천 보조(자속 포함).
@@ -2143,6 +2142,7 @@ let party = Array(PARTY_MAX).fill(null);   // dollId per party slot (선배치 =
 let partyMulti = 0;                         // 보스전 다중타겟 — 파티 공통(인형별 아님)
 let atkForce = 0;                           // 공격 적세(눈에는 눈 고정피해 파티버프) — 파티 공통
 let favorBuff = 0;                          // 접대속성(피해+30·치명+30 글로벌) — 파티 공통
+let critFull = 0;                           // 치명타 100%(부족분 올림, 피증 없음) — 파티 공통. 과치명은 raw 유지
 let eyeForce = {};                          // 개별 '눈에는 눈 우선 배치' — dollId→1 (파티 타일 체크)
 let activeSlot = -1;
 let dollId = null;                          // = party[activeSlot]
@@ -2561,7 +2561,7 @@ function save(){
       if(pack) for(const k in pack) if(snap[k] === pack[k]) delete snap[k];
       profiles[dollId] = snap;
     }
-    localStorage.setItem(STORE_KEY, JSON.stringify({inv, seq, party, partyMulti, atkForce, favorBuff, eyeForce, activeSlot, equipsByDoll, targets, goals, mode, scenario, profiles}));
+    localStorage.setItem(STORE_KEY, JSON.stringify({inv, seq, party, partyMulti, atkForce, favorBuff, critFull, eyeForce, activeSlot, equipsByDoll, targets, goals, mode, scenario, profiles}));
   }catch(e){}
 }
 function load(){
@@ -2574,6 +2574,7 @@ function load(){
     if(d.partyMulti != null) partyMulti = d.partyMulti;
     if(d.atkForce != null) atkForce = d.atkForce;
     if(d.favorBuff != null) favorBuff = d.favorBuff;
+    if(d.critFull != null) critFull = d.critFull;
     if(d.eyeForce) eyeForce = d.eyeForce;
     if(d.equipsByDoll) equipsByDoll = d.equipsByDoll;
     if(typeof d.activeSlot === 'number') activeSlot = d.activeSlot;
@@ -4340,6 +4341,8 @@ function renderTargets(){
   if(fc) fc.onchange = () => { favorBuff = fc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
   const mc = document.getElementById('cMulti');
   if(mc) mc.onchange = () => { partyMulti = mc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
+  const cc = document.getElementById('cCrit100');
+  if(cc) cc.onchange = () => { critFull = cc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
   updateFinal();
 
   document.getElementById('autoBtn').onclick = autoAssign;
@@ -4376,7 +4379,7 @@ function syncScenarioInputs(){
   set('cElem', scenario.elem); set('cRange', scenario.range);
   const chk = (id, v) => { const n = document.getElementById(id); if(n) n.checked = !!v; };
   chk('cAoe', scenario.aoe); chk('cSingle', scenario.single); chk('cAct', scenario.act);
-  chk('cOob', scenario.oob); chk('cMulti', partyMulti); chk('cEye', atkForce); chk('cFavor', favorBuff);
+  chk('cOob', scenario.oob); chk('cMulti', partyMulti); chk('cEye', atkForce); chk('cFavor', favorBuff); chk('cCrit100', critFull);
   updateFinal();
 }
 
@@ -4737,11 +4740,11 @@ function dmgMult(lvByKey){
   const favorCr = favorBuff ? 30 : 0;
   const crBase = ((_cl && CRIT_LOCK[_cl.name] != null) ? CRIT_LOCK[_cl.name] : (S.cr + FS.bondCr + FS.wCr + ((_cl && DOLL_CRIT_OFFSET[_cl.name]) || 0))) + favorCr;
   const cdBase = S.cd + FS.bondCd + FS.wCd;
-  const cr0raw = Math.max(0, crBase), cr1raw = Math.max(0, crBase + b.cr);
-  /* 실효 치명 캡 95(사용자 규칙 2026-08-20): 95% 이상이면 실전(팀버프·약점·변동)에서 사실상 100% —
-     잔여 5%p에 치명 강화 서브를 쓰는 건 낭비이므로 100으로 간주해 자동 무가치화. 오버크릿 전환은 raw 기준 유지. */
-  const effCr = (r) => r >= CR_NEAR_CAP ? 100 : Math.min(100, r);
-  const cr0 = effCr(cr0raw), cr1 = effCr(cr1raw);
+  /* 치명타 100% 체크(critFull, 파티 공통): 부족분만 100으로 올림 — 실전 치명 버프 가정. 피증은 없음(접대속성과
+     독립). 이미 100 이상(과치명)은 raw 유지 → 오버크릿 전환 계산 불변. 올림 상태에선 치명 강화 자동 무가치. */
+  const crB2 = critFull ? Math.max(crBase, 100) : crBase;
+  const cr0raw = Math.max(0, crB2), cr1raw = Math.max(0, crB2 + b.cr);
+  const cr0 = Math.min(100, cr0raw), cr1 = Math.min(100, cr1raw);
   /* 오버크릿 전환 인형(추화): 100% 초과 치명률 → 치명피해 1:1 가산 → 치명 강화(b.cr)가 캡 넘어도 치피로 유효 */
   const oc = _cl && DOLL_OVERCRIT.has(_cl.name);
   const cd0 = cdBase + (oc ? Math.max(0, cr0raw - 100) : 0);
@@ -4781,7 +4784,7 @@ function recoScoreOf(itemIds){
     if(!dn || DOLL_OVERCRIT.has(dn.name)) return false;
     const crB = (CRIT_LOCK[dn.name] != null) ? CRIT_LOCK[dn.name]
       : (scenario.cr + (FS.bondCr || 0) + (FS.wCr || 0) + (DOLL_CRIT_OFFSET[dn.name] || 0)) + (favorBuff ? 30 : 0);
-    return crB >= CR_NEAR_CAP;   /* 실효 캡 95(사용자 규칙) — 95%대 치명도 치명 강화 추천 제외 */
+    return (critFull ? Math.max(crB, 100) : crB) >= 100;   /* 치명타 100% 체크 시 올림 후 판정 */
   })();
   const cnt = {}; let s = 0;
   itemIds.forEach(id => {

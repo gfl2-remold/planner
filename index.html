@@ -669,10 +669,10 @@ button.danger:hover{border-color:var(--bad)}
           <label>단일 공격</label><input id="cSingle" type="checkbox">
           <label>액티브 공격</label><input id="cAct" type="checkbox">
           <label>턴외 공격</label><input id="cOob" type="checkbox">
-          <label title="현상 '꽃' 등 다중타겟 조건 효과 유효화 · 파티 공통 설정">2타겟 이상</label><input id="cMulti" type="checkbox">
-          <label title="공격 적세 = 보스가 고정피해를 받을 때마다 아군 전체 피해 증가(파티 공통). 켜면 고정피해 소스 '눈에는 눈'을 인형당 1개씩 최대한 배치(방해 없을 때만 편입, 강제 아님)">공격 적세 사용<br>(눈에는 눈 배치)</label><input id="cEye" type="checkbox">
-          <label title="속성 접대 파티 = 피해량 +30%·치명률 +30% 글로벌(파티 공통). 치명 만작 딜러는 치명률 100% 캡에 걸려 치명 강화 무가치화(치피 가치↑). 치명 캡 안 되는 인형(추화·섹스턴스 오버크릿)은 치명 강화 유지">접대속성<br>(치명 강화 무가치)</label><input id="cFavor" type="checkbox">
-          <label title="실전 치명 버프 가정 — 치명률이 부족한 인형만 100%로 올림(파티 공통). 접대속성과 달리 피해량 +30%는 없음. 이미 100% 이상(과치명)은 그대로 유지 → 오버크릿 전환 계산 불변. 켜면 치명 강화가 자동 무가치화">치명타 100%<br>(부족분 올림)</label><input id="cCrit100" type="checkbox">
+          <label title="다중타겟 조건 효과(꽃 등) 유효 · 파티 공통">2타겟 이상</label><input id="cMulti" type="checkbox">
+          <label title="고정피해마다 아군 피해↑ — 눈에는 눈 인형당 1개 배치 · 파티 공통">공격 적세 사용<br>(눈에는 눈 배치)</label><input id="cEye" type="checkbox">
+          <label title="피해 +30%·치명 +30% — 치명 캡 도달 시 치명 강화 무가치(오버크릿 예외) · 파티 공통">접대속성<br>(치명 강화 무가치)</label><input id="cFavor" type="checkbox">
+          <label title="부족한 치명만 100%로 올림(피증 없음·과치명 유지) → 치명 강화 무가치 · 파티 공통">치명타 100%<br>(부족분 올림)</label><input id="cCrit100" type="checkbox">
         </div>
 
         <details class="cfg-more">
@@ -2745,7 +2745,7 @@ function renderParty(){
       switchDoll(i);
     };
     /* 개별 '눈에는 눈 우선 배치' 체크 — 타일 클릭(전환)과 분리(stopPropagation) */
-    const eye = el(`<label class="peye" title="이 멤버에 '눈에는 눈'을 강제 배치(공격 적세 스택 — 보스전 피격 딜러 등). 딜 손실을 감수하고 삽입"><input type="checkbox"${eyeForce[id] ? ' checked' : ''}> 눈눈</label>`);
+    const eye = el(`<label class="peye" title="눈에는 눈 강제 배치(딜 손실 감수)"><input type="checkbox"${eyeForce[id] ? ' checked' : ''}> 눈눈</label>`);
     eye.onclick = (e) => e.stopPropagation();
     eye.querySelector('input').onchange = (e) => { if(e.target.checked) eyeForce[id] = 1; else delete eyeForce[id]; save(); };
     tile.appendChild(eye);

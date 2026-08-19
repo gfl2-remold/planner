@@ -662,8 +662,8 @@ button.danger:hover{border-color:var(--bad)}
           <label>액티브 공격</label><input id="cAct" type="checkbox">
           <label>턴외 공격</label><input id="cOob" type="checkbox">
           <label title="현상 '꽃' 등 다중타겟 조건 효과 유효화 · 파티 공통 설정">2타겟 이상</label><input id="cMulti" type="checkbox">
-          <label title="공격 적세 = 보스가 고정피해를 받을 때마다 아군 전체 피해 증가. 켜면 고정피해 소스인 '눈에는 눈'의 파티버프 기여를 딜에 반영해 최적화(방해 없을 때 편입, 강제 아님)">공격 적세 사용</label><input id="cEye" type="checkbox">
-          <label title="속성 접대 파티 = 피해량 +30%·치명률 +30% 글로벌. 치명 만작 딜러는 치명률 100% 캡에 걸려 치명 강화가 무가치화(치피 가치↑). 치명이 캡 안 되는 인형(추화 등)은 치명 강화 가치 유지">접대속성</label><input id="cFavor" type="checkbox">
+          <label title="공격 적세 = 보스가 고정피해를 받을 때마다 아군 전체 피해 증가. 켜면 고정피해 소스인 '눈에는 눈'의 파티버프 기여를 딜에 반영해 최적화(방해 없을 때 편입, 강제 아님)"· 파티 공통">공격 적세 사용</label><input id="cEye" type="checkbox">
+          <label title="속성 접대 파티 = 피해량 +30%·치명률 +30% 글로벌. 치명 만작 딜러는 치명률 100% 캡에 걸려 치명 강화가 무가치화(치피 가치↑). 치명이 캡 안 되는 인형(추화 등)은 치명 강화 가치 유지"· 파티 공통">접대속성</label><input id="cFavor" type="checkbox">
         </div>
 
         <details class="cfg-more">
@@ -2126,6 +2126,8 @@ let seq = 1;
 const PARTY_MAX = 5;
 let party = Array(PARTY_MAX).fill(null);   // dollId per party slot (선배치 = 낮은 index = 우선)
 let partyMulti = 0;                         // 보스전 다중타겟 — 파티 공통(인형별 아님)
+let atkForce = 0;                           // 공격 적세(눈에는 눈 고정피해 파티버프) — 파티 공통
+let favorBuff = 0;                          // 접대속성(피해+30·치명+30 글로벌) — 파티 공통
 let activeSlot = -1;
 let dollId = null;                          // = party[activeSlot]
 let equipsByDoll = {};                      // dollId -> [6] inv item ids
@@ -2171,7 +2173,7 @@ const SCEN_DEFAULT = {
   atk:0, hp:0, def:0, coreAtk:0, coreHp:0, coreDef:0, love:9, manage:40, keys:6, vow:0,
   extraAtkPct:0, extraHpPct:0, extraDefPct:0, extraAtk:0, extraDef:0, extraHp:0, defConv:0, defMode:0, weapCal:6, vector:0, battleAtkPct:0,
   baseDmg:0, cr:20, cd:120, enemyDef:5000,
-  elem:'물리', aoe:1, single:1, act:1, oob:0, atkForce:0, favorBuff:0,
+  elem:'물리', aoe:1, single:1, act:1, oob:0,
   range:'none',
 };
 /* 배포 기준 고정(만작 가정): 인형 성능을 뽑으려면 무조건 하는 항목들은 입력 제거·최대치 고정.
@@ -2540,7 +2542,7 @@ function save(){
       if(pack) for(const k in pack) if(snap[k] === pack[k]) delete snap[k];
       profiles[dollId] = snap;
     }
-    localStorage.setItem(STORE_KEY, JSON.stringify({inv, seq, party, partyMulti, activeSlot, equipsByDoll, targets, goals, mode, scenario, profiles}));
+    localStorage.setItem(STORE_KEY, JSON.stringify({inv, seq, party, partyMulti, atkForce, favorBuff, activeSlot, equipsByDoll, targets, goals, mode, scenario, profiles}));
   }catch(e){}
 }
 function load(){
@@ -2551,6 +2553,8 @@ function load(){
     if(d.seq) seq = d.seq;
     if(Array.isArray(d.party)) party = d.party.slice(0,PARTY_MAX).concat(Array(PARTY_MAX).fill(null)).slice(0,PARTY_MAX);
     if(d.partyMulti != null) partyMulti = d.partyMulti;
+    if(d.atkForce != null) atkForce = d.atkForce;
+    if(d.favorBuff != null) favorBuff = d.favorBuff;
     if(d.equipsByDoll) equipsByDoll = d.equipsByDoll;
     if(typeof d.activeSlot === 'number') activeSlot = d.activeSlot;
     /* 구버전(단일 인형) 이전 */
@@ -4288,7 +4292,11 @@ function renderTargets(){
     save(); syncScenarioInputs();
   };
   bind('cElem','elem',true); bind('cRange','range',true);
-  bind('cAoe','aoe'); bind('cSingle','single'); bind('cAct','act'); bind('cOob','oob'); bind('cEye','atkForce'); bind('cFavor','favorBuff');
+  bind('cAoe','aoe'); bind('cSingle','single'); bind('cAct','act'); bind('cOob','oob');
+  const ec = document.getElementById('cEye');
+  if(ec) ec.onchange = () => { atkForce = ec.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
+  const fc = document.getElementById('cFavor');
+  if(fc) fc.onchange = () => { favorBuff = fc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
   const mc = document.getElementById('cMulti');
   if(mc) mc.onchange = () => { partyMulti = mc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
   updateFinal();
@@ -4327,7 +4335,7 @@ function syncScenarioInputs(){
   set('cElem', scenario.elem); set('cRange', scenario.range);
   const chk = (id, v) => { const n = document.getElementById(id); if(n) n.checked = !!v; };
   chk('cAoe', scenario.aoe); chk('cSingle', scenario.single); chk('cAct', scenario.act);
-  chk('cOob', scenario.oob); chk('cMulti', partyMulti); chk('cEye', scenario.atkForce); chk('cFavor', scenario.favorBuff);
+  chk('cOob', scenario.oob); chk('cMulti', partyMulti); chk('cEye', atkForce); chk('cFavor', favorBuff);
   updateFinal();
 }
 
@@ -4564,7 +4572,7 @@ function dmgMult(lvByKey){
   /* 공격 적세: 눈에는 눈은 피격 시 보스에게 고정피해 → 파티버프 스택. 스택은 '고정피해 소스 수'로 쌓이므로
      인형 1명당 1회분(1스택 소스)만 유효 — 레벨(피해 크기)·같은 인형 내 개수는 스택 추가 없음(사용자: 2스택몰이보다
      1스택 분산이 나음). → 이 인형이 눈에는 눈을 하나라도 보유하면 고정 크레딧 1회, 캡. 파티 배치 시 자연히 분산. */
-  if(S.atkForce){
+  if(atkForce){
     const EYE_STACK = 0.4;
     for(const key in lvByKey){ if(key.split('|')[2] === '눈에는 눈'){ b.dmg += EYE_STACK; break; } }
   }
@@ -4606,7 +4614,7 @@ function dmgMult(lvByKey){
   const _cl = dollById(dollId);
   /* 접대속성 파티: 치명률 +30% 글로벌 → 치명 만작 딜러는 100% 캡, 치명 강화(b.cr) 자동 무가치·치피 가치 유지.
      캡 안 되는 인형(추화 등)은 치명 강화 가치 자연 유지(하드코딩 없이 캡이 예외 처리). */
-  const favorCr = S.favorBuff ? 30 : 0;
+  const favorCr = favorBuff ? 30 : 0;
   const crBase = ((_cl && CRIT_LOCK[_cl.name] != null) ? CRIT_LOCK[_cl.name] : (S.cr + FS.bondCr + FS.wCr + ((_cl && DOLL_CRIT_OFFSET[_cl.name]) || 0))) + favorCr;
   const cdBase = S.cd + FS.bondCd + FS.wCd;
   const cr0raw = Math.max(0, crBase), cr1raw = Math.max(0, crBase + b.cr);
@@ -4620,7 +4628,7 @@ function dmgMult(lvByKey){
   /* 주는 피해%도 기존 보유분(baseDmg+무기 특성+공용키)과 가산 — 한계효용 반영.
      +COMBAT_DMG_BUFF: 실전 팀버프·스킬·디버프 피증 가정. 피증이 포화될수록 피해% 옵션은 한계효용↓,
      공격 스탯(피칼전·공격강화)은 유지 → 공격 스탯이 자연히 최우선이 됨. (조절 가능한 상수) */
-  const base0 = S.baseDmg + FS.wDmg + FS.keyDmg + COMBAT_DMG_BUFF + (S.favorBuff ? 30 : 0);   /* 접대속성 피해량 +30% 글로벌 */
+  const base0 = S.baseDmg + FS.wDmg + FS.keyDmg + COMBAT_DMG_BUFF + (favorBuff ? 30 : 0);   /* 접대속성 피해량 +30% 글로벌 */
   const dmgRatio = (1 + (base0 + b.dmg)/100) / (1 + base0/100);
   return {
     mult: atkRatio * dmgRatio * (e1/e0),

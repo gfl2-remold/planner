@@ -662,6 +662,7 @@ button.danger:hover{border-color:var(--bad)}
           <label>액티브 공격</label><input id="cAct" type="checkbox">
           <label>턴외 공격</label><input id="cOob" type="checkbox">
           <label title="현상 '꽃' 등 다중타겟 조건 효과 유효화 · 파티 공통 설정">2타겟 이상</label><input id="cMulti" type="checkbox">
+          <label title="현상 게이트를 채우는 방어 슬롯에 '눈에는 눈'(반격 고정피해+보스 버프스택)을 우선 채용. 끄면 조합 최적(다른 보조가 나을 때)">눈에는 눈 채용</label><input id="cEye" type="checkbox">
         </div>
 
         <details class="cfg-more">
@@ -2165,7 +2166,7 @@ const SCEN_DEFAULT = {
   atk:0, hp:0, def:0, coreAtk:0, coreHp:0, coreDef:0, love:9, manage:40, keys:6, vow:0,
   extraAtkPct:0, extraHpPct:0, extraDefPct:0, extraAtk:0, extraDef:0, extraHp:0, defConv:0, defMode:0, weapCal:6, vector:0, battleAtkPct:0,
   baseDmg:0, cr:20, cd:120, enemyDef:5000,
-  elem:'물리', aoe:1, single:1, act:1, oob:0,
+  elem:'물리', aoe:1, single:1, act:1, oob:0, eyeForEye:0,
   range:'none',
 };
 /* 배포 기준 고정(만작 가정): 인형 성능을 뽑으려면 무조건 하는 항목들은 입력 제거·최대치 고정.
@@ -4280,7 +4281,7 @@ function renderTargets(){
     save(); syncScenarioInputs();
   };
   bind('cElem','elem',true); bind('cRange','range',true);
-  bind('cAoe','aoe'); bind('cSingle','single'); bind('cAct','act'); bind('cOob','oob');
+  bind('cAoe','aoe'); bind('cSingle','single'); bind('cAct','act'); bind('cOob','oob'); bind('cEye','eyeForEye');
   const mc = document.getElementById('cMulti');
   if(mc) mc.onchange = () => { partyMulti = mc.checked ? 1 : 0; save(); renderAll(); };   /* 파티 공통 */
   updateFinal();
@@ -4319,7 +4320,7 @@ function syncScenarioInputs(){
   set('cElem', scenario.elem); set('cRange', scenario.range);
   const chk = (id, v) => { const n = document.getElementById(id); if(n) n.checked = !!v; };
   chk('cAoe', scenario.aoe); chk('cSingle', scenario.single); chk('cAct', scenario.act);
-  chk('cOob', scenario.oob); chk('cMulti', partyMulti);
+  chk('cOob', scenario.oob); chk('cMulti', partyMulti); chk('cEye', scenario.eyeForEye);
   updateFinal();
 }
 
@@ -4435,7 +4436,7 @@ function dmgEffect(kind, cat, name, val){
     /* 눈에는 눈: 방어 보조지만 반격 고정피해(피격 시 최대 체력 N%, 공격력 100% 상한)+보스 버프스택 유틸 —
        죽은 방어 보조(저항·대책)와 달리 딜 기여가 있음(사용자 지적). 현상 게이트(예: 클루카이 불워크4)를 채울 때
        死유틸 대신 눈에는 눈을 우선하도록 소량 dmg 크레딧(휴리스틱, 피격 빈도·스택 시너지는 미모델링이라 보수적). */
-    case '눈에는 눈': return {dmg: val * 0.1};
+    case '눈에는 눈': return S.eyeForEye ? {dmg: val * 0.1} : null;
     case '피와 칼의 전환': return atkPen ? {atkFlat: FS.hp * val/100} : null;   /* 체력→공격 flat. 관통항↑(스프링필드 체력몰빵→큰 공격전환, 르미_ 실측). 류시는 관통도 체력이라 무의미 */
     case '칼과 피의 공명': return hpMain ? {hpFlat: FS.atk * val/100} : null;  /* 공격→체력 flat. 계수 배수↑(공격 계수 인형엔 무가치) */
   }

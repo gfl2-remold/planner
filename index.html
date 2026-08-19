@@ -351,6 +351,8 @@ button.primary:hover{background:var(--support);color:var(--bg)}
 .ptile[draggable=true]{cursor:grab}
 .ptile.dragging{opacity:.4}
 .ptile.dragover{border-color:var(--support);box-shadow:0 0 0 2px var(--support)}
+.ptile.domelem{outline:2px solid var(--dom);outline-offset:1px}
+.ptile.domelem .face::after{content:'';position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--dom);box-shadow:0 0 0 1.5px var(--panel)}
 .ptile .face{
   position:relative;
   width:92px;height:92px;display:flex;align-items:center;justify-content:center;
@@ -2692,6 +2694,7 @@ function renderParty(){
     tile.ondragleave = () => tile.classList.remove('dragover');
     tile.ondrop = (e) => { e.preventDefault(); tile.classList.remove('dragover'); reorderParty(dragSrc, i); dragSrc = null; };
   };
+  const dom = partyDominantElem();
   party.forEach((id, i) => {
     if(id == null){
       const tile = el('<div class="ptile empty"><div class="face">+</div><div class="pname">비어 있음</div></div>');
@@ -2706,6 +2709,11 @@ function renderParty(){
       `<div class="pname">${i+1}. ${d.name}</div>` +
       `<div class="px" title="파티에서 제외">✕</div></div>`);
     tile.style.setProperty('--cat', CATS[d.cat].color);
+    /* 파티 지배 속성 멤버 = 속성색 테두리(흑로자 등 flex는 제외 → 비지배가 시각적으로 튐) */
+    if(dom && d.elem === dom && !DOLL_ELEM_FLEX.has(d.name)){
+      tile.style.setProperty('--dom', ELEM_COLOR[dom] || 'var(--dim)');
+      tile.classList.add('domelem');
+    }
     tile.ondragstart = (e) => { dragSrc = i; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); tile.classList.add('dragging'); };
     tile.ondragend = () => { tile.classList.remove('dragging'); document.querySelectorAll('.ptile.dragover').forEach(t => t.classList.remove('dragover')); dragSrc = null; };
     dropOn(tile, i);
@@ -4426,6 +4434,36 @@ function partyTargetElems(){
   if(uniq.length === 1) return uniq;             // 명확: 딜러 단일 속성
   return firstElem ? [firstElem] : uniq;         // 애매(다속성)·딜러없음 → 1번 인형 속성
 }
+/* 파티 지배 속성 — 비-flex 딜러 중 유일 최다 위상 속성. 흑로자(OTs-14)·경구 등 flex는 지배 주체에서 제외. */
+function partyDominantElem(){
+  const cnt = {};
+  for(const id of party){
+    if(id == null) continue;
+    const d = dollById(id);
+    if(!d || d.cat === 'support' || DOLL_ELEM_FLEX.has(d.name)) continue;
+    const e = d.elem;
+    if(!e || e === '물리') continue;   /* 물리 지배는 위상 공진과 무경합 */
+    cnt[e] = (cnt[e] || 0) + 1;
+  }
+  let best = null, bestN = 0, tie = false;
+  for(const e in cnt){ if(cnt[e] > bestN){ best = e; bestN = cnt[e]; tie = false; } else if(cnt[e] === bestN) tie = true; }
+  return (best && !tie) ? best : null;
+}
+/* 흑로자용 비경합 위상 속성 — 지배(dom) 제외, 가용(미소모) 인벤의 강화/강타 레벨합이 가장 많은 속성 */
+function bestNonDomElem(dom, used){
+  const cnt = {};
+  inv.forEach(it => {
+    if(used && used.has(it.id)) return;
+    (it.subs || []).forEach(s => {
+      const first = String(s.name).split(' ')[0];
+      if(ELEMS.includes(first) && first !== '물리' && first !== dom && /(강화|강타)$/.test(s.name))
+        cnt[first] = (cnt[first] || 0) + s.lv;
+    });
+  });
+  let best = null, bestN = -1;
+  for(const e in cnt){ if(cnt[e] > bestN){ best = e; bestN = cnt[e]; } }
+  return best;
+}
 let PE = [];   // dmgMult에서 채우는 파티 딜러 속성 캐시
 
 function dmgEffect(kind, cat, name, val){
@@ -5151,7 +5189,16 @@ async function partyAutoAssign(){
     Object.assign(scenario, SCEN_DEFAULT, srcA || {});
     /* KIT 강제(낡은 프로필 오염 차단, 프리셋 인형 예외) + 딜 속성 = 인형 고유값 강제 + 만작 기준 고정 */
     if(doll && DOLL_KIT[doll.name] && !PRESETS[id]) Object.assign(scenario, DOLL_KIT[doll.name]);
-    if(doll && doll.elem) scenario.elem = (DOLL_ELEM_FLEX.has(doll.name) && profiles[id] && profiles[id].elem) ? profiles[id].elem : doll.elem;
+    if(doll && doll.elem){
+      let e = (DOLL_ELEM_FLEX.has(doll.name) && profiles[id] && profiles[id].elem) ? profiles[id].elem : doll.elem;
+      /* 흑로자(OTs-14 공진) = 파티 지배 속성 회피 최적화. 수동 속성 고정(profiles.elem) 없을 때만 자동:
+         지배 속성템은 전문 딜러에게 양보하고, 미소모 인벤 강화/강타가 제일 많은 비경합 위상으로 개조. */
+      if(doll.name === 'OTs-14' && !(profiles[id] && profiles[id].elem)){
+        const alt = bestNonDomElem(partyDominantElem(), globallyUsed);
+        if(alt) e = alt;
+      }
+      scenario.elem = e;
+    }
     applyDollBase(doll, srcA);
     Object.assign(scenario, FIXED_MAX);
     const pre = (id === synergySupport) ? synergyPre : null;

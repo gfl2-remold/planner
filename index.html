@@ -1592,7 +1592,7 @@ const DOLL_KIT = {
   "울리드": {"single":1,"aoe":0,"act":1,"oob":0,"range":"melee"},
   "베프리": {"single":1,"aoe":1,"act":1,"oob":0},
   "비욜카": {"single":1,"aoe":0,"act":1,"oob":0},
-  "추화": {"single":1,"aoe":1,"act":0,"oob":1},
+  "추화": {"single":1,"aoe":0.3,"act":0,"oob":1},   /* 스킬 태그 검증(2026-08-20): 일반·1스·2스=단일, 그을음 도트=단일(주딜), 결전기만 범위 → aoe 0.3 부분 가중(플래그는 소수 지원 — dmgEffect가 곱산) */
   "캐롤릭": {"single":1,"aoe":1,"act":1,"oob":0,"range":"melee"},
   "페이": {"single":1,"aoe":0,"act":1,"oob":0,"range":"melee"},
   "하프시": {"single":0,"aoe":1,"act":1,"oob":0},

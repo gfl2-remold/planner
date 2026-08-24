@@ -2348,6 +2348,15 @@ const PRESETS = {
        extraAtkPct:69.6, extraHpPct:9, extraAtk:288, baseDmg:23, cr:95, cd:135,
        weapCal:6, elem:'산성', aoe:1, single:0, act:1, oob:0, range:'none'},
 };
+/* 공격유형 플래그(인형 고유값) 강제 — 프리셋 인형의 낡은 저장 프로필이 프리셋 수정을 우회하던 구멍의 근치
+   (2026-08-20 실증: 클루카이 single:1 stale 프로필이 프리셋 0 수정 후에도 단일 중격을 유효 메인으로 오판).
+   비프리셋 인형의 KIT 강제와 동일 원칙. scenario 조립 직후(KIT 적용 뒤) 호출할 것. */
+const KIT_FLAGS = ['aoe', 'single', 'act', 'oob', 'range'];
+function applyKitFlags(id){
+  const p = PRESETS[id];
+  if(!p) return;   /* 비프리셋은 KIT 강제가 이미 담당 */
+  KIT_FLAGS.forEach(f => { if(p[f] !== undefined) scenario[f] = p[f]; });
+}
 /*BONDKEYS_START*/
 /* 결합키(자기 파생키) 보정 스탯 60인 — namu 인형 문서 "결합도 05 달성 결합키" 표(2026-08-12 크롤).
    보정률은 bondKeyPct()가 결합도 레벨로 계산(4렙 3.0%, 렙당 +0.3, 9렙 4.5%). 수동 4인(린드·파에투사·클루카이·바스티) 크롤 일치 검증. */
@@ -2623,6 +2632,7 @@ function loadProfile(){
   /* DOLL_KIT(단일/범위/액티브/턴외) = 위키 추천 유도 공격 프로필 — 낡은 자동저장 프로필이 못 덮게 강제.
      수동 캘리브레이션된 PRESETS 인형만 프리셋 플래그 우선. */
   if(dn && DOLL_KIT[dn.name] && !PRESETS[dollId]) Object.assign(scenario, DOLL_KIT[dn.name]);
+  applyKitFlags(dollId);
   if(dn && dn.elem){
     if(DOLL_ELEM_FLEX.has(dn.name)){
       /* 수동 드롭다운 변경(elemPinned)만 존중 — 옛 자동값이 프로필에 남아도 무시하고 파티속성 매칭으로 표시 */
@@ -5326,6 +5336,7 @@ async function partyAutoAssign(){
     Object.assign(scenario, SCEN_DEFAULT, srcA || {});
     /* KIT 강제(낡은 프로필 오염 차단, 프리셋 인형 예외) + 딜 속성 = 인형 고유값 강제 + 만작 기준 고정 */
     if(doll && DOLL_KIT[doll.name] && !PRESETS[id]) Object.assign(scenario, DOLL_KIT[doll.name]);
+    applyKitFlags(id);
     if(doll && doll.elem){
       if(DOLL_ELEM_FLEX.has(doll.name))
         scenario.elem = ((profiles[id] && profiles[id].elemPinned && flexPin(doll, profiles[id].elem)) || flexWorkElem(doll, globallyUsed));
@@ -5378,6 +5389,7 @@ async function partyAutoAssign(){
   const srcR = profiles[dollId] || PRESETS[dollId] || null;
   Object.assign(scenario, SCEN_DEFAULT, srcR || {});
   if(restoreDoll && DOLL_KIT[restoreDoll.name] && !PRESETS[dollId]) Object.assign(scenario, DOLL_KIT[restoreDoll.name]);
+  applyKitFlags(dollId);
   if(restoreDoll && restoreDoll.elem) scenario.elem = effElemOf(restoreDoll, dollId) || restoreDoll.elem;
   applyDollBase(restoreDoll, srcR);
   Object.assign(scenario, FIXED_MAX);
@@ -5413,6 +5425,7 @@ function buildPartySummary(){
     const srcS = profiles[id] || PRESETS[id] || null;
     Object.assign(scenario, SCEN_DEFAULT, srcS || {});
     if(DOLL_KIT[d.name] && !PRESETS[id]) Object.assign(scenario, DOLL_KIT[d.name]);
+    applyKitFlags(id);
     if(d.elem) scenario.elem = effElemOf(d, id) || d.elem;
     applyDollBase(d, srcS);
     Object.assign(scenario, FIXED_MAX);

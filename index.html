@@ -1480,11 +1480,23 @@ const DOLL_SCALE = { '류시': 'hp', '스프링필드': 'hpx', '페리': 'hpx', 
 const CRIT_LOCK = { '헬렌': 100, '페리': 100 };
 /* 치명률 오프셋 — 패시브로 치명률이 상시 가감되는 인형. 웰로드 '사건의 지배자' -100%(위키): 실효 치명률이
    거의 0으로 눌려 치명·치피 리몰딩이 무의미. crBase에 가산 후 0~100 클램프 → 치명 강화·치피 자동 무가치화. */
-const DOLL_CRIT_OFFSET = { '웰로드': -100 };
-/* 오버크릿 전환 — 치명률 100% 초과분이 치명피해로 1:1 변환되는 패시브 보유 인형(추화 중추Ⅲ: "치명률 100% 초과 시
-   초과 1%마다 치명피해 1%로 변환"). 이들은 치명 강화가 캡(100%) 넘어도 치피로 전환돼 계속 유효 —
-   접대속성(+30% 치명 글로벌)에서 대부분 딜러가 치명 강화 무가치화될 때도 예외로 가치 유지. */
-const DOLL_OVERCRIT = new Set(['추화', '섹스턴스']);   /* 섹스턴스: "치명률 100% 초과분→공격력·치료·치피로 전환"(60인 크롤 발견) */
+/* 힐러 4인(센타우레이시·치타·콜펜·크세니아)도 동일 처리 — 위키 원문 "치명타가 터지지 않아 치명타와
+   치명타 피해의 효율이 낮으므로 공격력을 우선시" (2026-08-20 크롤). 치명 봉인 = 올림 제외·추천 제외·치피 무가치. */
+const DOLL_CRIT_OFFSET = { '웰로드': -100, '센타우레이시': -100, '치타': -100, '콜펜': -100, '크세니아': -100 };
+/* 오버크릿 전환 — 치명률 100% 초과분이 치명피해로 변환되는 인형. r=전환 비율, cap=전환 상한(%p, 없으면 무제한).
+   위키 원문(2026-08-20 정밀 크롤): 추화 "초과 1%마다 치명피해 1%"(1:1 무제한) · 울리드 2단계 도약키
+   "초과 치명률 1%당 0.3% 치피 전환"(0.3:1) · 섹스턴스 응혈 "넘친 치명률→공격력·치료·치피 전환, 상한 45%
+   (고돌 75%)" — 다중 스탯 전환이지만 치피 1:1·상한 75로 근사. 캡 넘어도 전환돼 치명 강화 가치 유지(비율만큼). */
+const OVERCRIT_CONV = { '추화': {r:1}, '섹스턴스': {r:1, cap:75}, '울리드': {r:0.3} };
+const DOLL_OVERCRIT = new Set(Object.keys(OVERCRIT_CONV));   /* 호환용 — 판정은 Set, 수치는 OVERCRIT_CONV */
+/* 소환물 주딜 미계승 페널티 — 공격 비중 대부분이 소환물인데 특정 버킷이 소환물에 계승되지 않는 인형.
+   위키 원문(2026-08-20): 파파샤 "치명·치피·주는 피해 증가 비효율(시티 가디언 미계승, 공격만 계승)" ·
+   플로렌스 "아리오스에 주는 피해 증가 미계승(공·치명·치피는 100% 계승)" · 안도리스 "소환물은 본체의 주는
+   피해 증가 옵션 미계승". 본체 잔여 딜 감안 0.2배 잔가치. */
+const SUMMON_SCALE = { '파파샤': {dmg:0.2, cr:0.2, cd:0.2}, '플로렌스': {dmg:0.2}, '안도리스': {dmg:0.2} };
+/* 기초 체력 기준 가중공격(페리) — 계수가 정비실(전투 시작 전) 체력 고정: "전투 중 최대 체력 버프는 계수
+   미적용, 정비실 기준 체력 증가까지만"(위키 원문). 칼과 피의 공명(전투 개시 공→체 전환)은 계수에 미반영. */
+const DOLL_HP_STATIC = new Set(['페리']);
 /* 딜 속성 가변 인형: 경구=도약키 장착 시 연소·미장착 물리덱 운용 가능, OTs-14=모든 속성.
    이들은 elem 강제 제외 — 기본은 자기 속성, 사용자가 딜 속성 드롭다운으로 바꾸면 프로필로 유지. */
 const DOLL_ELEM_FLEX = new Set(['경구', 'OTs-14']);
@@ -2223,9 +2235,16 @@ const DOLL_DEFCONV = { '헬렌': 70, '안도리스': 30, '사브리나': 15 };
    → 리몰딩·현상 방어%가 전환 딜에 미기여(옵션 가치 0). 전환분은 고정 상수라 최종 공격 표시에만 존재.
    헬렌은 "자신의 방어력 70%"(현재 스탯 기준)라 제외 — 방어 옵션이 전환 딜에 유효. */
 const DEFCONV_STATIC = new Set(['안도리스']);
+/* 자체 치명 상시버프(패시브·자버프, 만작 기준 사실상 상시) — 표준팩 cr에 가산해 자체 캡 도달을 반영.
+   위키 원문 근거(2026-08-20 정밀 크롤, doll_mechanics.jsonl quotes):
+   마키아토 +40(패시브, "정비실 60% 초과 금지") · 대연 +30(조율 10스택×3%, "85% 금지") · 캐롤릭 +25(6-03
+   이동+10, 도약 이동당+5×3) · 니키타 +30(자버프 5스택) · 파에투사 +20(칼날 공명 최초 최대 후 상시) ·
+   로벨라 +20(약점 판명 3스택) · 샤크리 +30(불덩이+20/4돌+10, 연소팟 상시, "70% 금지").
+   파티 조건부(토로로 빛창살·네메시스 디버프 비례)는 변동성 커서 미반영. */
+const DOLL_CR_BONUS = { '마키아토': 40, '대연': 30, '캐롤릭': 25, '니키타': 30, '파에투사': 20, '로벨라': 20, '샤크리': 30 };
 function stdPackOf(B, name){
   return {atk:B.atk, hp:B.hp, def:B.def, coreAtk:B.coreAtk, coreHp:B.coreHp, coreDef:B.coreDef,
-          cr:B.cr + 75, cd:B.cd + 30, extraAtkPct:rnd1(B.atkB + 60.6),
+          cr:B.cr + 75 + (DOLL_CR_BONUS[name] || 0), cd:B.cd + 30, extraAtkPct:rnd1(B.atkB + 60.6),
           extraHpPct:B.hpB, extraAtk:288, extraDef:0, extraHp:0,
           defConv: DOLL_DEFCONV[name] || 0};
 }
@@ -2321,8 +2340,10 @@ const PRESETS = {
      전 스킬 범위·근접·산성 → 범위✓/단일✗(일반공격 미사용)/액티브✓/턴외✓(행동 지원)/근거리 우선/안정붕괴✓.
      미반영: 원상 복원 공+50%(버스트 1턴), 칼날 공명 스택 계수 증폭(전투 중 램핑). */
   48: {atk:998, hp:2338, def:620, coreAtk:245, coreHp:714, coreDef:224, love:9, manage:36, keys:6, vow:1,
-       extraAtkPct:65.6, extraHpPct:0, extraAtk:288, baseDmg:36, cr:94, cd:160, battleAtkPct:8,
+       extraAtkPct:65.6, extraHpPct:0, extraAtk:288, baseDmg:36, cr:114, cd:160, battleAtkPct:8,
        weapCal:6, elem:'산성', aoe:1, single:0, act:1, oob:1, range:'melee'},
+       /* cr 114 = 실측 94 + 칼날 공명 최초 만스택 후 상시 치명 +20(위키 원문, 2026-08-20 정밀 크롤) —
+          자체 캡 도달로 치명 강화 무가치. DOLL_CR_BONUS는 표준팩 전용이라 프리셋엔 직접 반영. */
   /* 클루카이 — 인게임 공격 4786.08 분해로 캘리브레이션 (2026-08-11):
      flat 2311 = 인형827+노드204+무기390+코어252+결합도119(덤프 일치)+관리실231(36렙 수치)+파츠288,
      % 107.1 = 기본10+고유키12+결약5+파츠45.6+공용키15+결합키4.5(결합도9)+무기15. 총합 정확 일치.
@@ -2621,7 +2642,7 @@ function load(){
 /* 프로필 버전 — 팩/프리셋/KIT 기본값을 수정할 때마다 +1 할 것(HANDOVER 규칙).
    구버전 저장 프로필은 로드 시 자동 폐기(프리셋 복원과 동일) — 낡은 수치가 수정을 우회하는 찌꺼기 근치
    (실증: 클루카이 single, 레이니 cr 수정이 저장 프로필에 막힘 2026-08-20). 수동 핀(딜 속성)만 보존. */
-const PACK_VERSION = 2;
+const PACK_VERSION = 3;   /* v3: 정밀 크롤 반영(자체 치명캡 7인·힐러 봉인 4인·오버크릿 비율·소환물 페널티·페리 칼피공) */
 /* 버전 검사 통과한 프로필만 반환 — 구버전은 폐기하고 명시적 사용자 선택(속성 핀·방어형)만 이월.
    프로필을 읽는 모든 경로(loadProfile·파티 배치·복원·요약)는 profiles[id] 직독 금지, 이걸 쓸 것. */
 function freshProfile(id){
@@ -4587,7 +4608,10 @@ function dmgEffect(kind, cat, name, val){
        공격 적세 미사용(체크 해제) 시 딜0(조합 최적 자유). 메인딜러 강제 아님 — 자연 편입만. */
     case '눈에는 눈': return null;   /* 공격 적세 크레딧은 dmgMult에서 인형당 1회 고정 부여(레벨·개수 무관) — 아래 EYE_STACK 참조 */
     case '피와 칼의 전환': return atkPen ? {atkFlat: FS.hp * val/100} : null;   /* 체력→공격 flat. 관통항↑(스프링필드 체력몰빵→큰 공격전환, 르미_ 실측). 류시는 관통도 체력이라 무의미 */
-    case '칼과 피의 공명': return hpMain ? {hpFlat: FS.atk * val/100} : null;  /* 공격→체력 flat. 계수 배수↑(공격 계수 인형엔 무가치) */
+    case '칼과 피의 공명': {   /* 공격→체력 flat(전투 개시 전환). 계수 배수↑ — 단 기초 체력 기준 인형(페리)은 미적용 */
+      const _d = dollById(dollId);
+      return (hpMain && !(_d && DOLL_HP_STATIC.has(_d.name))) ? {hpFlat: FS.atk * val/100} : null;
+    }
   }
   const first = name.split(' ')[0];
   if(ELEMS.includes(first)){
@@ -4738,6 +4762,9 @@ function dmgMult(lvByKey){
     const pb = phenoBuckets(catLvFromKeys(lvByKey), _dn.name, S);
     for(const k in pb) b[k] = (b[k]||0) + pb[k];
   }
+  /* 소환물 주딜 미계승 페널티(파파샤 치명·치피·피해%, 플로렌스·안도리스 피해%) — 위키 원문 근거 0.2배 */
+  const _ss = _dn && SUMMON_SCALE[_dn.name];
+  if(_ss) for(const k in _ss) b[k] = (b[k] || 0) * _ss[k];
   /* 리몰딩 공%는 기존 % 가산 풀에 합류 (곱연산 아님). 방어→공격 전환(defConv) 인형은 방어도 딜 스탯.
      벡터키 공격 8%는 전투 한정 — 표시 스탯엔 없지만 여기 기준·적용 양쪽에 포함(희석 정확성). */
   const conv = S.defConv / 100;
@@ -4781,9 +4808,10 @@ function dmgMult(lvByKey){
   const cr0raw = Math.max(0, crB2), cr1raw = Math.max(0, crB2 + b.cr);
   const cr0 = Math.min(100, cr0raw), cr1 = Math.min(100, cr1raw);
   /* 오버크릿 전환 인형(추화): 100% 초과 치명률 → 치명피해 1:1 가산 → 치명 강화(b.cr)가 캡 넘어도 치피로 유효 */
-  const oc = _cl && DOLL_OVERCRIT.has(_cl.name);
-  const cd0 = cdBase + (oc ? Math.max(0, cr0raw - 100) : 0);
-  const cd1 = cdBase + b.cd + (oc ? Math.max(0, cr1raw - 100) : 0);
+  const oc = _cl && OVERCRIT_CONV[_cl.name];
+  const ocConv = (raw) => { if(!oc) return 0; const ex = Math.max(0, raw - 100); return Math.min(ex, oc.cap != null ? oc.cap : Infinity) * oc.r; };
+  const cd0 = cdBase + ocConv(cr0raw);
+  const cd1 = cdBase + b.cd + ocConv(cr1raw);
   const e0 = 1 + cr0/100 * (cd0 - 100)/100;
   const e1 = 1 + cr1/100 * (cd1 - 100)/100;
   /* 주는 피해%도 기존 보유분(baseDmg+무기 특성+공용키)과 가산 — 한계효용 반영.

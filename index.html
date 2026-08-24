@@ -2569,6 +2569,7 @@ function save(){
       const snap = Object.assign({}, scenario);
       const pack = dollPackOf(dollById(dollId));
       if(pack) for(const k in pack) if(snap[k] === pack[k]) delete snap[k];
+      snap._v = PACK_VERSION;   /* 버전 스탬프 — 구버전 프로필은 loadProfile에서 자동 폐기 */
       profiles[dollId] = snap;
     }
     localStorage.setItem(STORE_KEY, JSON.stringify({inv, seq, party, partyMulti, atkForce, favorBuff, critFull, eyeForce, activeSlot, equipsByDoll, targets, goals, mode, scenario, profiles}));
@@ -2617,9 +2618,27 @@ function load(){
   }catch(e){}
 }
 
+/* 프로필 버전 — 팩/프리셋/KIT 기본값을 수정할 때마다 +1 할 것(HANDOVER 규칙).
+   구버전 저장 프로필은 로드 시 자동 폐기(프리셋 복원과 동일) — 낡은 수치가 수정을 우회하는 찌꺼기 근치
+   (실증: 클루카이 single, 레이니 cr 수정이 저장 프로필에 막힘 2026-08-20). 수동 핀(딜 속성)만 보존. */
+const PACK_VERSION = 2;
+/* 버전 검사 통과한 프로필만 반환 — 구버전은 폐기하고 명시적 사용자 선택(속성 핀·방어형)만 이월.
+   프로필을 읽는 모든 경로(loadProfile·파티 배치·복원·요약)는 profiles[id] 직독 금지, 이걸 쓸 것. */
+function freshProfile(id){
+  const p = profiles[id];
+  if(!p) return null;
+  if(p._v === PACK_VERSION) return p;
+  const keep = {};
+  if(p.elemPinned){ keep.elem = p.elem; keep.elemPinned = 1; }
+  if(p.defMode) keep.defMode = p.defMode;
+  if(Object.keys(keep).length){ keep._v = PACK_VERSION; profiles[id] = keep; return keep; }
+  delete profiles[id];
+  return null;
+}
+
 /* 인형 전환 시 프로필 로드: 저장분 > 프리셋 > 기본값 (관리실 레벨은 계정 공통이라 유지) */
 function loadProfile(){
-  const saved = profiles[dollId];
+  const saved = freshProfile(dollId);
   if(saved && saved.extraPct != null && saved.extraAtkPct == null){
     saved.extraAtkPct = saved.extraPct;   // 구버전 필드 이전
     delete saved.extraPct;
@@ -2629,6 +2648,7 @@ function loadProfile(){
   const dn = dollById(dollId);
   const src = saved || PRESETS[dollId] || null;
   Object.assign(scenario, SCEN_DEFAULT, src || {});
+  scenario._v = PACK_VERSION;
   /* DOLL_KIT(단일/범위/액티브/턴외) = 위키 추천 유도 공격 프로필 — 낡은 자동저장 프로필이 못 덮게 강제.
      수동 캘리브레이션된 PRESETS 인형만 프리셋 플래그 우선. */
   if(dn && DOLL_KIT[dn.name] && !PRESETS[dollId]) Object.assign(scenario, DOLL_KIT[dn.name]);
@@ -4515,7 +4535,7 @@ function flexMatchElem(doll){
    flex: 수동 핀(elemPinned+유효값)만 존중, 아니면 파티 매칭. 비-flex: 인형 고유값(프로필 낡은 값 무시). */
 function effElemOf(d, id){
   if(!DOLL_ELEM_FLEX.has(d.name)) return d.elem;
-  const p = profiles[id] || PRESETS[id] || {};
+  const p = freshProfile(id) || PRESETS[id] || {};
   return (p.elemPinned && flexPin(d, p.elem)) || flexMatchElem(d);
 }
 function flexWorkElem(doll, used){
@@ -5332,7 +5352,7 @@ async function partyAutoAssign(){
     await new Promise(r => setTimeout(r, 30));   /* 리페인트 양보 */
     dollId = id;
     const doll = dollById(id);
-    const srcA = profiles[id] || PRESETS[id] || null;
+    const srcA = freshProfile(id) || PRESETS[id] || null;
     Object.assign(scenario, SCEN_DEFAULT, srcA || {});
     /* KIT 강제(낡은 프로필 오염 차단, 프리셋 인형 예외) + 딜 속성 = 인형 고유값 강제 + 만작 기준 고정 */
     if(doll && DOLL_KIT[doll.name] && !PRESETS[id]) Object.assign(scenario, DOLL_KIT[doll.name]);
@@ -5386,7 +5406,7 @@ async function partyAutoAssign(){
   dollId = origDoll != null && party.includes(origDoll) ? origDoll : order[0];
   activeSlot = party.indexOf(dollId);
   const restoreDoll = dollById(dollId);
-  const srcR = profiles[dollId] || PRESETS[dollId] || null;
+  const srcR = freshProfile(dollId) || PRESETS[dollId] || null;
   Object.assign(scenario, SCEN_DEFAULT, srcR || {});
   if(restoreDoll && DOLL_KIT[restoreDoll.name] && !PRESETS[dollId]) Object.assign(scenario, DOLL_KIT[restoreDoll.name]);
   applyKitFlags(dollId);
@@ -5422,7 +5442,7 @@ function buildPartySummary(){
   for(const id of order){
     const d = dollById(id); if(!d) continue;
     dollId = id;
-    const srcS = profiles[id] || PRESETS[id] || null;
+    const srcS = freshProfile(id) || PRESETS[id] || null;
     Object.assign(scenario, SCEN_DEFAULT, srcS || {});
     if(DOLL_KIT[d.name] && !PRESETS[id]) Object.assign(scenario, DOLL_KIT[d.name]);
     applyKitFlags(id);

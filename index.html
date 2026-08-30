@@ -562,6 +562,13 @@ button.danger:hover{border-color:var(--bad)}
 .rc-row.sel{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,var(--panel))}
 .rc-row.feat{border-color:#E5B93C}
 .rc-row.sel.feat{border-color:#E5B93C;background:color-mix(in srgb,var(--ok) 12%,var(--panel))}
+.rc-favbtn{background:none;border:none;color:var(--dimmer);font-size:17px;cursor:pointer;flex:none;padding:0 2px;line-height:1;align-self:center}
+.rc-favbtn:hover{color:#E5B93C}
+.rc-favbtn.on{color:#E5B93C}
+.rc-catfav.active{border-color:#E5B93C;color:#E5B93C;background:color-mix(in srgb,#E5B93C 14%,var(--panel2))}
+.rc-dfav-btn{background:var(--panel2);border:1px solid var(--line);color:var(--dim);border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;flex:none}
+.rc-dfav-btn:hover{color:var(--txt)}
+.rc-dfav-btn.on{border-color:#E5B93C;color:#E5B93C}
 .rc-rdot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px}
 .rc-rbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .rc-rtop{display:flex;align-items:center;justify-content:space-between;gap:6px}
@@ -5896,6 +5903,14 @@ function save(){ try{ localStorage.setItem(KEY, JSON.stringify(LIST)); localStor
 let LIST = load();
 let nextId = LIST.reduce((m,r)=>Math.max(m, r.id||0), 0) + 1;
 
+/* ---------- 즐겨찾기 ---------- */
+const FAV_KEY = 'gfl_recipe_favs';
+const FAVCAT = '★ 즐겨찾기';
+function loadFavs(){ try{ const a=JSON.parse(localStorage.getItem(FAV_KEY)||'[]'); return new Set(Array.isArray(a)?a:[]); }catch(e){ return new Set(); } }
+let favs = loadFavs();
+function saveFavs(){ try{ localStorage.setItem(FAV_KEY, JSON.stringify([...favs])); }catch(e){} }
+function toggleFav(id){ if(favs.has(id)) favs.delete(id); else favs.add(id); saveFavs(); renderCatbar(); renderList(); renderDetail(); }
+
 /* ---------- 상태 ---------- */
 let curCat = '포만감', curSub = null, premSel = null, search = '', selId = null;
 
@@ -5932,6 +5947,9 @@ function initTabs(){
 /* ---------- 좌측: 카테고리/서브/목록 ---------- */
 function renderCatbar(){
   const bar = $('rcCatbar'); if(!bar) return; bar.innerHTML='';
+  const fav = el(`<button class="rc-cat rc-catfav${curCat===FAVCAT?' active':''}">★ 즐겨찾기 <i>${favs.size}</i></button>`);
+  fav.onclick = () => { curCat=FAVCAT; curSub=null; renderCatbar(); renderSubbar(); renderList(); };
+  bar.appendChild(fav);
   CATS.forEach(c => {
     const n = LIST.filter(r=>r.cat===c).length;
     const b = el(`<button class="rc-cat${c===curCat?' active':''}">${esc(c)} <i>${n}</i></button>`);
@@ -5941,7 +5959,7 @@ function renderCatbar(){
 }
 function renderSubbar(){
   const bar = $('rcSubbar'); if(!bar) return; bar.innerHTML='';
-  const subs = SUBS[curCat] || [];
+  const subs = (curCat===FAVCAT) ? [] : (SUBS[curCat] || []);
   if(!subs.length){ bar.style.display='none'; return; }
   bar.style.display='flex';
   const all = el(`<button class="rc-sub${curSub===null?' active':''}">전체</button>`);
@@ -5955,7 +5973,7 @@ function renderSubbar(){
   });
 }
 function filteredList(){
-  let arr = LIST.filter(r => r.cat===curCat);
+  let arr = (curCat===FAVCAT) ? LIST.filter(r => favs.has(r.id)) : LIST.filter(r => r.cat===curCat);
   if(curSub) arr = arr.filter(r => r.sub===curSub);
   if(search){ const q=search.toLowerCase(); arr = arr.filter(r =>
     (r.name||'').toLowerCase().includes(q) || (r.eff||'').toLowerCase().includes(q) ||
@@ -5971,16 +5989,18 @@ function renderList(){
   arr.forEach(r => {
     const sub = subLabelOf(r.sub);
     const col = (r.sub && r.sub.startsWith('속성:')) ? (EC[r.sub.slice(3)]||'var(--dim)') : 'var(--dim)';
-    const stars = (r.grade||0) ? `<span class="rc-rstar">${'★'.repeat(r.grade)}</span>` : '';
     const meta = sub ? `<span class="rc-rsub">${esc(sub)}</span>` : `<span class="rc-rmeta">${esc(effShort(r.eff))}</span>`;
-    const row = el(`<button class="rc-row${r.id===selId?' sel':''}${FEATURED.has(r.id)?' feat':''}">
+    const favOn = favs.has(r.id);
+    const row = el(`<div class="rc-row${r.id===selId?' sel':''}${FEATURED.has(r.id)?' feat':''}" tabindex="0">
       <span class="rc-rdot" style="background:${col}"></span>
       <span class="rc-rbody">
-        <span class="rc-rtop"><span class="rc-rname">${r.name?esc(r.name):'<i>이름 미정</i>'}</span>${stars}</span>
+        <span class="rc-rtop"><span class="rc-rname">${r.name?esc(r.name):'<i>이름 미정</i>'}</span></span>
         ${meta}
       </span>
-    </button>`);
+      <button class="rc-favbtn${favOn?' on':''}" title="즐겨찾기">${favOn?'★':'☆'}</button>
+    </div>`);
     row.onclick = () => selectRecipe(r.id);
+    row.querySelector('.rc-favbtn').onclick = (e) => { e.stopPropagation(); toggleFav(r.id); };
     wrap.appendChild(row);
   });
 }
@@ -6019,7 +6039,6 @@ function renderDetail(){
   // 헤더
   const head = el(`<div class="rc-dhead"></div>`);
   if(rec){
-    const stars = '★★★★★'.slice(0, rec.grade||0) + '☆☆☆☆☆'.slice(0, 5-(rec.grade||0));
     const sub = subLabelOf(rec.sub);
     const dimg = rec.img || DISH[rec.name] || '';   // 사용자 업로드 우선, 없으면 foods 완제품 이미지
     head.innerHTML = `
@@ -6027,8 +6046,11 @@ function renderDetail(){
       <div class="rc-dhtext">
         <h2>${rec.name?esc(rec.name):'<i class="rc-noname">이름 미정</i>'}</h2>
         <div class="rc-dtags"><span class="rc-cat-t">${esc(rec.cat)}</span>${sub?`<span class="rc-sub-t">${esc(sub)}</span>`:''}</div>
-        <div class="rc-dgrade">${stars}</div>
       </div>`;
+    const favOn = favs.has(rec.id);
+    const fbtn = el(`<button class="rc-dfav-btn${favOn?' on':''}">${favOn?'★ 즐겨찾기됨':'☆ 즐겨찾기'}</button>`);
+    fbtn.onclick = () => toggleFav(rec.id);
+    head.appendChild(fbtn);
   } else {
     head.innerHTML = `<div class="rc-dimg rc-dimg-ph">🍳</div><div class="rc-dhtext"><h2 class="rc-noname">요리를 선택하세요</h2><div class="rc-dsublt">왼쪽 목록에서 요리를 고르세요.</div></div>`;
   }

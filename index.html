@@ -1652,10 +1652,10 @@ const DOLL_KIT = {
 /* 인형별 만렙 기본 능력치 + 리몰딩 코어 Lv60 (namu 능력치표, 2026-08-12 크롤).
    atkB/hpB = 기본 공보/체보%. 코어 위키 미기재(웰로드·OTs-14·네메시스·연광·미틸·소프)는 중앙값 비율 보간(7의 배수). */
 const DOLL_BASE = {
-  "아스테리아": {atk:899, hp:2385, def:677, cr:20, cd:120, atkB:5, hpB:0, coreAtk:226, coreHp:401, coreDef:114},
-  "이글레타": {atk:1041, hp:2117, def:677, cr:20, cd:120, atkB:10, hpB:0, coreAtk:263, coreHp:354, coreDef:114},
-  "콜레다": {atk:954, hp:2337, def:581, cr:30, cd:120, atkB:5, hpB:0, coreAtk:242, coreHp:391, coreDef:96},
-  "페일린": {atk:1019, hp:2289, def:649, cr:20, cd:120, atkB:10, hpB:0, coreAtk:259, coreHp:384, coreDef:110},
+  "아스테리아": {atk:900, hp:2385, def:679, cr:20, cd:120, atkB:5, hpB:5, coreAtk:218, coreHp:726, coreDef:249},
+  "이글레타": {atk:1043, hp:2117, def:679, cr:20, cd:120, atkB:10, hpB:0, coreAtk:253, coreHp:645, coreDef:249},
+  "콜레다": {atk:955, hp:2337, def:581, cr:30, cd:130, atkB:5, hpB:0, coreAtk:231, coreHp:712, coreDef:213},
+  "페일린": {atk:1020, hp:2290, def:650, cr:20, cd:120, atkB:10, hpB:0, coreAtk:247, coreHp:697, coreDef:238},
   "린드": {atk:1041, hp:2185, def:610, cr:20, cd:120, atkB:10, hpB:0, coreAtk:252, coreHp:679, coreDef:217},
   "경구": {atk:998, hp:2226, def:620, cr:20, cd:120, atkB:10, hpB:0, coreAtk:245, coreHp:679, coreDef:224},
   "류시": {atk:229, hp:2528, def:590, cr:20, cd:120, atkB:0, hpB:10, coreAtk:42, coreHp:1022, coreDef:217},
@@ -2106,7 +2106,7 @@ const DOLLS = [
   {id:20, name:'조휘', cat:'vanguard', elem:'탁류', slots:['vanguard','vanguard','vanguard','vanguard','sentinel','bulwark'], gun:1050, love:[[22,72,0],[0,83,31],[38,0,72],[49,103,0]]},
   {id:19, name:'추화', cat:'vanguard', elem:'연소', slots:['vanguard','vanguard','vanguard','vanguard','sentinel','sentinel'], gun:1048, love:[[22,74,0],[0,84,33],[38,0,77],[49,106,0]]},
   {id:16, name:'캐롤릭', cat:'vanguard', elem:'연소', slots:['vanguard','vanguard','vanguard','vanguard','sentinel','bulwark'], gun:1001, love:[[18,60,0],[0,69,28],[31,0,66],[40,86,0]]},
-  {id:63, name:'콜레다', cat:'vanguard', elem:'탁류', slots:['vanguard','vanguard','vanguard','vanguard','sentinel','sentinel'], gun:0, love:[]},
+  {id:63, name:'콜레다', cat:'vanguard', elem:'탁류', slots:['vanguard','vanguard','vanguard','vanguard','sentinel','sentinel'], gun:1080, love:[[21,70,0],[0,80,31],[36,0,73],[47,100,0]]},
   {id:15, name:'페이', cat:'vanguard', elem:'물리', slots:['vanguard','vanguard','vanguard','vanguard','sentinel','bulwark'], gun:1043, love:[[21,69,0],[0,79,33],[37,0,76],[47,99,0]]},
   {id:50, name:'하프시', cat:'vanguard', elem:'산성', slots:['vanguard','vanguard','vanguard','sentinel','sentinel','bulwark'], gun:1049, love:[[22,76,0],[0,86,34],[38,0,79],[49,108,0]]},
   {id:14, name:'강우', cat:'support', elem:'전도', slots:['support','support','support','support','vanguard','vanguard'], gun:1035, love:[[20,87,0],[0,99,34],[35,0,80],[45,124,0]]},
@@ -2122,7 +2122,7 @@ const DOLLS = [
   {id:28, name:'센타우레이시', cat:'support', elem:'연소', slots:['support','support','support','support','bulwark','bulwark'], gun:1028, love:[[20,82,0],[0,93,36],[35,0,84],[45,117,0]]},
   {id:25, name:'수오미', cat:'support', elem:'빙결', slots:['support','support','support','support','bulwark','bulwark'], gun:1039, love:[[19,86,0],[0,98,38],[34,0,88],[44,122,0]]},
   {id:33, name:'스프링필드', cat:'support', elem:'탁류', slots:['support','support','support','support','bulwark','bulwark'], gun:1047, love:[[20,82,0],[0,94,36],[35,0,84],[45,118,0]]},
-  {id:61, name:'아스테리아', cat:'support', elem:'물리', slots:['support','support','support','support','sentinel','sentinel'], gun:0, love:[]},
+  {id:61, name:'아스테리아', cat:'support', elem:'물리', slots:['support','support','support','support','sentinel','sentinel'], gun:1078, love:[[21,87,0],[0,99,33],[37,0,77],[48,124,0]]},
   {id:43, name:'앨바', cat:'support', elem:'빙결', slots:['support','support','support','support','bulwark','sentinel'], gun:1065, love:[[22,85,0],[0,97,31],[38,0,73],[49,122,0]]},
   {id:30, name:'유희', cat:'support', elem:'물리', slots:['support','support','support','support','sentinel','sentinel'], gun:1054, love:[[22,80,0],[0,91,36],[38,0,84],[49,114,0]]},
   {id:27, name:'치타', cat:'support', elem:'연소', slots:['support','support','support','support','bulwark','sentinel'], gun:1024, love:[[17,79,0],[0,91,31],[30,0,71],[38,113,0]]},
@@ -2149,13 +2149,13 @@ const DOLLS = [
   {id:52, name:'샤이엔', cat:'sentinel', elem:'물리', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1070, love:[[24,83,0],[0,95,31],[43,0,73],[55,118,0]]},
   {id:5, name:'샤크리', cat:'sentinel', elem:'연소', slots:['sentinel','sentinel','sentinel','vanguard','vanguard','bulwark'], gun:1022, love:[[20,74,0],[0,84,28],[34,0,66],[44,105,0]]},
   {id:58, name:'소프', cat:'sentinel', elem:'빙결', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1076, love:[[24,84,0],[0,96,31],[42,0,73],[54,120,0]]},
-  {id:62, name:'이글레타', cat:'sentinel', elem:'빙결', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:0, love:[]},
+  {id:62, name:'이글레타', cat:'sentinel', elem:'빙결', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1079, love:[[23,86,0],[0,98,34],[40,0,79],[52,122,0]]},
   {id:11, name:'클루카이', cat:'sentinel', elem:'산성', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','bulwark'], gun:1052, love:[[24,82,0],[0,93,31],[42,0,73],[53,117,0]]},
   {id:12, name:'토로로', cat:'sentinel', elem:'탁류', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','bulwark'], gun:1025, love:[[24,78,0],[0,90,32],[42,0,76],[54,112,0]]},
   {id:48, name:'파에투사', cat:'sentinel', elem:'산성', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1060, love:[[23,86,0],[0,98,32],[40,0,76],[52,122,0]]},
   {id:1, name:'파파샤', cat:'sentinel', elem:'물리', slots:['sentinel','sentinel','sentinel','vanguard','vanguard','bulwark'], gun:1040, love:[[23,82,0],[0,93,32],[40,0,76],[52,117,0]]},
   {id:3, name:'페리티아', cat:'sentinel', elem:'산성', slots:['sentinel','sentinel','sentinel','vanguard','vanguard','bulwark'], gun:1021, love:[[22,84,0],[0,96,33],[38,0,77],[49,120,0]]},
-  {id:64, name:'페일린', cat:'sentinel', elem:'산성', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:0, love:[]},
+  {id:64, name:'페일린', cat:'sentinel', elem:'산성', slots:['sentinel','sentinel','sentinel','sentinel','vanguard','vanguard'], gun:1081, love:[[23,86,0],[0,98,34],[40,0,79],[52,122,0]]},
 ];
 
 const GLYPHS = {
@@ -2470,6 +2470,14 @@ const BOND_KEYS = {
 /* 전용무기 (정예 각인, 만렙 60 고정. 교정 1~6단계만 선택 — calDmg가 교정별 주는 피해%).
    스택/조건부 특성은 최대 스택 기준(방침). 출처: 나무위키 인형 무기 타입별 문서. */
 const WEAPONS = {
+  /* [CN 신규] 참회의 나침반(아스테리아): 공341·치피25. 罪恶衡量 짝수턴 물리+15~25%·홀수턴 2배 → 턴평균 1.5×. 방어무시(10%+교정5~15%) 제외. */
+  61: {name:'참회의 나침반', atk:341, atkPct:0, cr:0, cd:25, calDmg:[22.5,25.5,28.5,31.5,34.5,37.5], flatDmg:5},
+  /* [CN 신규] 실버윙 피스티(이글레타): 공390·치피25. 逐风 빙결피해+20~45%. 조건부 치피+10·방어5%무시 제외. */
+  62: {name:'실버윙 피스티', atk:390, atkPct:0, cr:0, cd:25, calDmg:[20,25,30,35,40,45], flatDmg:5},
+  /* [CN 신규] 체르노보그(콜레다): 공362·공보15. 灾厄 탁류피해+20~45%. 본인·소환물 치피+10(탁류 상시). 방어20%무시 제외. */
+  63: {name:'체르노보그', atk:362, atkPct:15, cr:0, cd:10, calDmg:[20,25,30,35,40,45], flatDmg:5},
+  /* [CN 신규] 삼아려수(페일린): 공383·치피25. 狡犬衔锁 산성 base+20~40% + 스택+15~60% 합산. 범위+5/산성범위+5·주동스택+16 제외(보수). */
+  64: {name:'삼아려수', atk:383, atkPct:0, cr:0, cd:25, calDmg:[35,48,61,74,87,100], flatDmg:5},
   /* 가시의 법칙: 공390+공보15%. 특성 = 디버프당 피해 +3~9%(최대 18~45% — 산성 조합 디버프 상시라 만스택)
      + 산성 피해 시 산성 피해 +10. 고정 특성 = 범위+5, 산성 추가+5. 각인 강화 = 산성 디버프 +2.5. */
   42: {name:'가시의 법칙', atk:390, atkPct:15, cr:0, cd:0,

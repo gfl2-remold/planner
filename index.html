@@ -2971,7 +2971,8 @@ function reorderParty(from, to){
   let fromPos = dolls.indexOf(fromDoll);
   let toPos = party[to] == null ? dolls.length : dolls.indexOf(party[to]);   /* 빈칸 드롭 = 맨 뒤 */
   dolls.splice(fromPos, 1);
-  if(toPos > fromPos) toPos--;
+  /* toPos 그대로 삽입 = 왼→오는 타겟 뒤에, 오→왼은 타겟 앞에(제거로 인덱스가 자연 보정됨).
+     예전의 toPos-- 보정은 왼→오에서 항상 한 칸 앞에 떨궈 '오른쪽으로 못 가는' 버그였음. */
   dolls.splice(toPos, 0, fromDoll);
   party = dolls.concat(Array(PARTY_MAX).fill(null)).slice(0, PARTY_MAX);
   activeSlot = party.indexOf(dollId);

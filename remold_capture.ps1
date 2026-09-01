@@ -1,24 +1,24 @@
-# GFL2 remolding memory capture (standalone, public build).
+﻿# GFL2 remolding memory capture (standalone, public build).
 # Reads the game heap READ-ONLY and writes owned remolding items to Desktop\gf2_remold.csv
 # in the logger CSV format. Same validated logic as the desktop Ctrl+R path
 # (exactly 1 main code at Lv3/gamma per item, median occurrence = base, round(occ/base) = owned count).
 # Run this as administrator; open the REMOLDING STORAGE screen in game first.
-# ASCII-only on purpose (PowerShell 5.1 mis-parses BOM-less non-ASCII).
+# Saved as UTF-8 WITH BOM so PowerShell 5.1 parses the Korean strings correctly.
+# Console output uses the console's default encoding (CP949 on Korean Windows) so Hangul renders.
 $ErrorActionPreference = 'Stop'
-try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 # --- self-elevate to administrator ---
 $pr = New-Object System.Security.Principal.WindowsPrincipal([System.Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $pr.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) {
-  Write-Host 'Requesting administrator rights (UAC prompt)...'
+  Write-Host '관리자 권한을 요청합니다 (UAC 창이 뜨면 [예]를 누르세요)...'
   try {
     Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',("`"" + $PSCommandPath + "`"")
-  } catch { Write-Host 'Administrator rights are required. Aborted.'; Start-Sleep -Seconds 3 }
+  } catch { Write-Host '관리자 권한이 필요합니다. 취소되었습니다.'; Start-Sleep -Seconds 3 }
   return
 }
 
-Write-Host 'GFL2 remolding memory capture'
-Write-Host 'Make sure the game is running and the REMOLDING STORAGE screen is open.'
+Write-Host 'GFL2 리몰딩 메모리 캡처'
+Write-Host '게임을 실행하고 [리몰딩 창고] 화면을 열어둔 상태에서 진행하세요.'
 Write-Host ''
 
 # --- embedded code table ---
@@ -48,15 +48,17 @@ public class Mem{
 '@
 
 $p = Get-Process GF2_Exilium -ErrorAction SilentlyContinue
-if(-not $p){ Write-Host 'ERROR: game (GF2_Exilium) is not running.'; Read-Host 'Press Enter to close'; return }
+if(-not $p){ Write-Host '오류: 게임(GF2_Exilium)이 실행 중이 아닙니다.'; Read-Host '엔터를 누르면 닫힙니다'; return }
 $h = [Mem]::OpenProcess(0x410,$false,$p.Id); if($h -eq [IntPtr]::Zero){ $h=[Mem]::OpenProcess(0x1010,$false,$p.Id) }
-if($h -eq [IntPtr]::Zero){ Write-Host 'ERROR: OpenProcess failed (administrator rights required).'; Read-Host 'Press Enter to close'; return }
+if($h -eq [IntPtr]::Zero){ Write-Host '오류: 메모리 접근 실패 (관리자 권한이 필요합니다).'; Read-Host '엔터를 누르면 닫힙니다'; return }
 
 $set=New-Object 'System.Collections.Generic.HashSet[int]'
 $hexOf=@{}; $ismain=@{}; $lv=@{}
 for($k=0;$k -lt $CODES.Count;$k++){ $iv=[int]$CODES[$k]; [void]$set.Add($iv); $hexOf[$iv]=$HEX[$k]; $ismain[$iv]=[int]$ISMAIN[$k]; $lv[$iv]=[int]$LV[$k] }
 
-$count=@{}; $repr=@{}; $addr=[Int64]0; $max=[Int64]0x7FFFFFFFFFFF; $regions=0
+Write-Host '메모리 스캔 중... 게임 메모리 크기에 따라 수십 초 걸릴 수 있습니다. 창을 닫지 마세요.'
+Write-Host -NoNewline '  '
+$count=@{}; $repr=@{}; $addr=[Int64]0; $max=[Int64]0x7FFFFFFFFFFF; $regions=0; $seen=0
 while($addr -lt $max){
  $mi=New-Object Mem+MEMINFO
  if([Mem]::VirtualQueryEx($h,[IntPtr]$addr,[ref]$mi,[Runtime.InteropServices.Marshal]::SizeOf($mi)) -eq 0){ break }
@@ -64,7 +66,7 @@ while($addr -lt $max){
  if($mi.State -eq 0x1000 -and ($prot -eq 0x04 -or $prot -eq 0x40) -and $mi.Type -eq 0x20000 -and $sz -gt 0 -and $sz -lt 96MB){
   $buf=New-Object byte[] $sz; $r=0
   if([Mem]::ReadProcessMemory($h,$mi.BaseAddress,$buf,$sz,[ref]$r) -and $r -gt 0){
-   $regions++
+   $regions++; if($regions % 40 -eq 0){ Write-Host -NoNewline '.' }
    foreach($run in [Mem]::Runs($buf,$r,$set)){
     $ints=$run -split ',' | ForEach-Object { [int]$_ }
     $mains=@($ints | Where-Object { $ismain[$_] -eq 1 })
@@ -76,11 +78,14 @@ while($addr -lt $max){
    }
   }
  }
+ # advance; guard against a zero/negative region size so we never loop forever
+ if($sz -le 0){ $sz=0x1000 }
  $addr=[Int64]$mi.BaseAddress + $sz
 }
 [Mem]::CloseHandle($h) | Out-Null
+Write-Host ''
 
-if($count.Count -eq 0){ Write-Host 'ERROR: no gamma items found. Open the remolding storage screen and retry.'; Read-Host 'Press Enter to close'; return }
+if($count.Count -eq 0){ Write-Host '오류: 리몰딩 아이템 미검출 — 게임에서 [리몰딩 창고]를 열고 다시 실행하세요.'; Read-Host '엔터를 누르면 닫힙니다'; return }
 $occ=@($count.Values | Sort-Object); $base=$occ[[int]($occ.Count/2)]; if($base -lt 1){ $base=1 }; $half=$base*0.5
 
 $sb=New-Object System.Text.StringBuilder; [void]$sb.AppendLine('uid,stat1,stat2,stat3')
@@ -99,9 +104,9 @@ $desktop=[Environment]::GetFolderPath('Desktop')
 $outCsv=Join-Path $desktop 'gf2_remold.csv'
 [System.IO.File]::WriteAllText($outCsv, $sb.ToString(), (New-Object System.Text.UTF8Encoding($true)))
 Write-Host ''
-Write-Host ("DONE: gamma items {0} / rows {1} (base={2}, regions={3})" -f $items,$rowN,$base,$regions)
-Write-Host ("Saved -> {0}" -f $outCsv)
-if($amb.Count -gt 0){ Write-Host ("WARN: {0} item(s) uncertain count (verify in game):" -f $amb.Count); $amb | ForEach-Object { Write-Host ("   "+$_) } }
+Write-Host ("완료: 리몰딩 {0}종 / {1}행 추출 (base={2}, 영역 {3}개)" -f $items,$rowN,$base,$regions)
+Write-Host ("저장됨 -> {0}" -f $outCsv)
+if($amb.Count -gt 0){ Write-Host ("경고: 개수 불확실 {0}건 (게임에서 직접 확인 권장):" -f $amb.Count); $amb | ForEach-Object { Write-Host ("   "+$_) } }
 Write-Host ''
-Write-Host 'Now import this CSV in the planner (Import button).'
-Read-Host 'Press Enter to close'
+Write-Host '이제 계산기의 [가져오기]로 바탕화면의 gf2_remold.csv 파일을 올리세요.'
+Read-Host '엔터를 누르면 닫힙니다'

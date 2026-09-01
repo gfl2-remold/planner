@@ -96,7 +96,7 @@ if($count.Count -eq 0){ Write-Host '오류: 리몰딩 아이템 미검출 — �
 $occ=@($count.Values | Sort-Object); $base=$occ[[int]($occ.Count/2)]; if($base -lt 1){ $base=1 }; $minOcc=$base*0.8
 
 $sb=New-Object System.Text.StringBuilder; [void]$sb.AppendLine('uid,stat1,stat2,stat3')
-$idx=0; $rowN=0; $items=0
+$idx=0; $rowN=0; $items=0; $noisy=0
 foreach($kk in $count.Keys){
  if($count[$kk] -lt $minOcc){ continue }
  $arr=$repr[$kk]
@@ -104,15 +104,24 @@ foreach($kk in $count.Keys){
  $ratio=$count[$kk]/[double]$base
  # owned = floor(occ/base + 0.2). occ = owned*base + reference-noise(>=0). Verified 100% vs logger on clean scans.
  $owned=[int][Math]::Floor($ratio + 0.2); if($owned -lt 1){ $owned=1 }
+ # noise "danger zone": rounded up (frac 0.8-0.88), below the real (k+1)-copy cluster (frac>=0.89). Possible +1 over-count.
+ $fr=$ratio-[Math]::Floor($ratio); if($fr -ge 0.80 -and $fr -le 0.88 -and $ratio -ge 1.0){ $noisy++ }
  $items++
  for($n=0;$n -lt $owned;$n++){ $idx++; $rowN++; [void]$sb.AppendLine(('M{0},{1},{2},{3}' -f $idx,$s1,$s2,$s3)) }
 }
 $desktop=[Environment]::GetFolderPath('Desktop')
-$outCsv=Join-Path $desktop 'gf2_remold.csv'
+# logger-style UTC timestamp in the filename (e.g. gf2_remold_20260901T141910Z.csv) — keeps history, pairs with logger.
+$dt=(Get-Date).ToUniversalTime(); $stamp=$dt.ToString('yyyyMMdd')+'T'+$dt.ToString('HHmmss')+'Z'
+$outCsv=Join-Path $desktop ('gf2_remold_'+$stamp+'.csv')
 [System.IO.File]::WriteAllText($outCsv, $sb.ToString(), (New-Object System.Text.UTF8Encoding($true)))
 Write-Host ''
 Write-Host ("완료: 리몰딩 {0}종 / {1}행 추출 (base={2}, 영역 {3}개)" -f $items,$rowN,$base,$regions)
 Write-Host ("저장됨 -> {0}" -f $outCsv)
+if($noisy -ge 2){
+  Write-Host ''
+  Write-Host ("[정확도 안내] 참조노이즈 의심 {0}건 — 일부 항목이 +1로 더 잡혔을 수 있습니다." -f $noisy)
+  Write-Host '   [리몰딩 창고]를 닫았다 새로 연 뒤 다시 실행하면 더 정확합니다(실행할 때마다 새 파일이 생기니 가장 최근 것을 올리세요).'
+}
 Write-Host ''
-Write-Host '이제 계산기의 [가져오기]로 바탕화면의 gf2_remold.csv 파일을 올리세요.'
+Write-Host '이제 계산기의 [가져오기]로 방금 저장된 위 파일(가장 최근 gf2_remold_*.csv)을 올리세요.'
 Read-Host '엔터를 누르면 닫힙니다'

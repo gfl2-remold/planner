@@ -15,6 +15,8 @@
   수정 → `python assemble_planner.py` → `node deploy_web.js "msg"`(files/에서). 직접 편집분은 다음 deploy에 덮임.
 - ⚠ **공개 캡처 배포 = PowerShell 스크립트 `remold_capture.ps1`(exe 폐기, 2026-09-01)**: 2026-09-01 오전 Defender ML 정의 업데이트(v1.457.439.0) 이후 서명 없는 메모리스캐너 **exe가 `Trojan:Win32/Sabsik.FL.A!ml`로 다운로드·디스크 차단**됨. 해시 무관(최초 통과본 713bd33도 재차단), 롤백·재컴파일 무의미(런타임 메모리읽기 행위가 트리거). → **exe 및 다운로드 버튼 webdist에서 제거**, 대신 `files/remold_capture.ps1`(자립형·데이터 내장·자기승격, `scratchpad/gen_capture_ps.py`로 생성) 배포. **텍스트 스크립트라 PE 트로이 판정 대상 아님** → 다운로드 통과. `deploy_web.js`가 ps1을 webdist에 복사. 실행법은 계산기 cap-tool 안내(`powershell -ExecutionPolicy Bypass -File ...`). 잔여 리스크: 빡센 PC는 실행 시 AMSI/ASR로 걸릴 수 있음(님 PC·Ctrl+R은 정상). exe를 살리려면 유료 코드사이닝 or MS 오탐신고(`microsoft.com/wdsi/filesubmission`, 해시단위·1~3일).
   - **금지**: 스캐너 exe 재컴파일→공개 배포(도로 트로이 차단), AV 회피(패킹·난독화·스텁런처)로 우회 시도. 데스크톱 Ctrl+R(`desktop/remold_extract.ps1`)은 exe 아님 → 무관하게 정상. 상세 = `files/HANDOVER.md` 세션 로그.
+  - **UX**: `.ps1`는 더블클릭 안 되므로 `remold_capture_RUN.bat`(옆의 ps1 실행) 동봉, 둘 다 같은 폴더 필요. ps1은 한글메시지+진행표시, UTF-8 **BOM 필수**(PS5.1이 BOM 없으면 CP949로 오인해 한글 파싱 깨짐).
+  - **⚠ 하마터면 버그(수정됨)**: 생성기 `gen_capture_ps.py`에서 임베딩 배열을 `$LV`/`$ISMAIN`로 두면 아래 해시테이블 `$lv=@{}`/`$ismain=@{}`와 **대소문자 무시 변수명 충돌**(PS는 `$LV`==`$lv`)로 배열이 빈 해시로 덮여 레벨·주옵이 전부 0 → **0종 검출**. 반드시 `$*_LIST` 등 안 겹치는 이름 사용. 데스크톱판은 JSON에서 빌드해 대문자 배열이 없어 무관.
 
 ### 집 세션 주요 작업 (전부 배포됨)
 - **메모리 캡처 = 로거(gfl2logger) 완전 대체**: MITM/CA/프록시/번들 없이 게임 힙 읽기전용 스캔으로 보유 리몰딩 추출.

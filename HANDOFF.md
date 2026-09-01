@@ -3,11 +3,33 @@
 > 이 파일은 학교 PC 세션에서 작성. 집 클로드는 `git pull` 후 이 파일부터 읽고 이어서 작업.
 > (두 PC의 클로드코드는 대화가 단절돼 있어, 리포가 유일한 인계 통로.)
 
-최종 갱신: 2026-09-01 (학교 세션)
+최종 갱신: 2026-09-01 (집 세션이 아래 §0 추가)
 
 ---
 
-## 1. 이번 세션에 한 일 — 버그 신고 → 구글 시트 파이프라인 (완료·배포됨)
+## 0. 집 세션 업데이트 (2026-08-31 ~ 09-01) — 읽고 이어갈 것
+
+### ⚠ 워크플로 주의 (제일 중요)
+- 학교 세션이 만든 **버그 신고 기능을 `files/planner_template.html`에 역이식 완료**(집 세션). 이제 template이 정본이라
+  assemble→deploy 해도 안 사라짐. **앞으로 `webdist/index.html` 직접 편집 금지** — 반드시 `files/planner_template.html`
+  수정 → `python assemble_planner.py` → `node deploy_web.js "msg"`(files/에서). 직접 편집분은 다음 deploy에 덮임.
+- `deploy_web.js`는 `remold_capture.exe`도 webdist에 함께 커밋(웹 다운로드 버튼 대상). 상세 = `files/HANDOVER.md` 세션 로그(2026-08-31).
+
+### 집 세션 주요 작업 (전부 배포됨)
+- **메모리 캡처 = 로거(gfl2logger) 완전 대체**: MITM/CA/프록시/번들 없이 게임 힙 읽기전용 스캔으로 보유 리몰딩 추출.
+  로거 γ와 **행단위 100% 일치**(주옵1개+Lv3 필터·주옵 stat1 배치·median base 개수복원). 경로 3: `capture/remold_capture.exe`(16KB
+  독립·자기승격) / 데스크톱 Ctrl+R(`desktop/remold_extract.ps1`) / 웹 다운로드 버튼(경고문구). PC 클라 전용. 데이터표=`_remold_patterns.json`+`_code_cls.json`.
+- **중섭 신규 4인(아스테리아·이글레타·콜레다·페일린) 라이브 편입** + mccwiki 실측 스탯/전용무기/유대. DEALER_OVERRIDE(아스테리아).
+- **GFL 요리 레시피 탭 신설**(계산기와 별개 탭, recipe_block.js+recipes_seed.json+foods/ 이미지, 즐겨찾기).
+- 파티 드래그 재정렬 버그 수정(왼→오 이동).
+
+### 남은 일 (§2 그대로 유효 — 아직 미완)
+- **신규 4인 현상(Imagoform) 중섭 대조**: 4인 라이브 편입은 됐으나 현상 수치·**아스테리아 꽃 조건(코드=`single`, 미확정)**은
+  구조 정합성만 검증. 집 망에서 IOP Wiki로 실수치 확인 필요(학교망 차단). 위치 = template `PHENO_EFFECT`/`PHENO`의 "아스테리아".
+
+---
+
+## 1. (학교 세션) 버그 신고 → 구글 시트 파이프라인 (완료·배포됨)
 
 제보를 **재현 가능**하게 받기 위해, 신고 버튼이 플래너 전체 상태를 구글 시트로 보내도록 추가.
 

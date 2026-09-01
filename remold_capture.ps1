@@ -1,7 +1,7 @@
 ﻿# GFL2 remolding memory capture (standalone, public build).
 # Reads the game heap READ-ONLY and writes owned remolding items to Desktop\gf2_remold.csv
 # in the logger CSV format. Same validated logic as the desktop Ctrl+R path
-# (exactly 1 main code at Lv3/gamma per item, median occurrence = base, round(occ/base) = owned count).
+# (exactly 1 main code at Lv3/gamma per item, median occurrence = base, floor(occ/base) = owned count).
 # Run this as administrator; open the REMOLDING STORAGE screen in game first.
 # Saved as UTF-8 WITH BOM so PowerShell 5.1 parses the Korean strings correctly.
 # Console output uses the console's default encoding (CP949 on Korean Windows) so Hangul renders.
@@ -101,8 +101,10 @@ foreach($kk in $count.Keys){
  $arr=$repr[$kk]
  $s1=$hexOf[[int]$arr[0]]; $s2= if($arr.Count -ge 2){$hexOf[[int]$arr[1]]}else{''}; $s3= if($arr.Count -ge 3){$hexOf[[int]$arr[2]]}else{''}
  $ratio=$count[$kk]/[double]$base; $frac=$ratio-[Math]::Floor($ratio)
- $owned=[int][Math]::Round($ratio); if($owned -lt 1){ $owned=1 }
- if($frac -ge 0.45 -and $frac -le 0.55 -and $ratio -ge 1.0){ $amb += ('code {0} (occ {1}/base {2} -> {3}?)' -f $arr[0],$count[$kk],$base,$owned) }
+ # floor, not round: occ = owned*base + reference-noise(>=0, <base; equipped/cached items add ~+0.6x base).
+ # round() would over-count those by 1; floor() ignores the sub-base noise and yields the true owned count.
+ $owned=[int][Math]::Floor($ratio); if($owned -lt 1){ $owned=1 }
+ if($frac -ge 0.85 -and $ratio -ge 1.0){ $amb += ('code {0} (occ {1}/base {2} -> {3}?)' -f $arr[0],$count[$kk],$base,$owned) }
  $items++
  for($n=0;$n -lt $owned;$n++){ $idx++; $rowN++; [void]$sb.AppendLine(('M{0},{1},{2},{3}' -f $idx,$s1,$s2,$s3)) }
 }

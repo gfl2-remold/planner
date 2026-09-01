@@ -23,7 +23,11 @@
  *   (앞쪽 A~E 칸이 섞여 들어가도 파서가 걸러내지만, 되도록 F열부터 복사 권장.)
  ************************************************************/
 
-var SECRET = 'gfl2bug_YDLvzrG_jaeh';   // ← index.html 의 BUG_REPORT_SECRET 과 동일하게
+var SECRET = 'gfl2bug_YDLvzrG_jaeh';   // ← index.html 의 BUG_REPORT_SECRET 과 동일하게(스팸차단, 공개돼도 무방)
+
+// ▼ 관리자 조회 전용 키 — index.html 에는 절대 넣지 말 것(넣으면 남들이 전체 리포트를 봄).
+//   Apps Script 편집기에서만 자기만 아는 값으로 바꾸고, 그 값을 개발자(클로드)에게만 전달.
+var ADMIN_KEY = 'gfl2admin_CHANGE_ME';
 
 var HEADERS = ['시각','버전','메모','UA','청크수','상태(청크1)'];
 
@@ -49,8 +53,46 @@ function doPost(e) {
   }
 }
 
-// 브라우저로 URL을 열었을 때 살아있는지 확인용(GET)
-function doGet() {
-  return ContentService.createTextOutput('GFL2 remold planner — bug report endpoint alive')
-    .setMimeType(ContentService.MimeType.TEXT);
+// GET:
+//  · 파라미터 없음      → 생존 확인 텍스트
+//  · ?admin=KEY&list=1  → 리포트 목록(메타: 행번호·시각·버전·메모·UA·상태길이) JSON (개발자 점검용)
+//  · ?admin=KEY&row=N   → N행의 전체 상태 JSON(청크 재조립) — 이걸 __loadDiagnostic 없이 바로 분석
+//  · ?admin=KEY&list=1&n=20 → 최근 20건만
+function doGet(e) {
+  var out = function (obj) {
+    return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+  };
+  var p = (e && e.parameter) || {};
+  if (!p.admin) {
+    return ContentService.createTextOutput('GFL2 remold planner — bug report endpoint alive')
+      .setMimeType(ContentService.MimeType.TEXT);
+  }
+  if (p.admin !== ADMIN_KEY) return out({ error: 'forbidden' });
+
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var last = sh.getLastRow();
+  if (last < 2) return out({ count: 0, rows: [] });
+  var vals = sh.getDataRange().getValues();   // [0]=헤더
+  // 한 행 → {row, ts, v, note, ua, state(청크 재조립)}
+  var mk = function (i) {
+    var r = vals[i]; var chunks = r.slice(5).filter(function (c) { return c !== '' && c != null; });
+    return { row: i + 1, ts: r[0], v: r[1], note: r[2], ua: r[3], n: r[4], state: chunks.join('') };
+  };
+
+  if (p.row) {
+    var i = parseInt(p.row, 10) - 1;
+    if (i < 1 || i >= vals.length) return out({ error: 'row out of range' });
+    return out(mk(i));   // 전체 상태 포함
+  }
+
+  // list: 메타만(상태는 길이만) — 응답 비대 방지
+  var n = p.n ? parseInt(p.n, 10) : 0;
+  var start = 1, end = vals.length;
+  if (n > 0) start = Math.max(1, end - n);
+  var rows = [];
+  for (var i = end - 1; i >= start; i--) {   // 최신순
+    var m = mk(i);
+    rows.push({ row: m.row, ts: m.ts, v: m.v, note: m.note, ua: m.ua, chars: (m.state || '').length });
+  }
+  return out({ count: vals.length - 1, rows: rows });
 }

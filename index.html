@@ -753,6 +753,7 @@ button.danger:hover{border-color:var(--bad)}
         <button class="ghost" id="exportBtn">내보내기</button>
         <button class="ghost" id="importBtn">가져오기</button>
         <input type="file" id="importFile" accept=".json,.csv" style="display:none">
+        <button class="ghost" id="bugBtn" title="현재 상태를 그대로 담아 버그를 신고합니다">🐛 버그 신고</button>
         <button class="ghost inv-reset" id="invResetBtn" title="보유 리몰딩 전체 삭제">초기화</button>
       </div>
 
@@ -921,6 +922,29 @@ button.danger:hover{border-color:var(--bad)}
       <button class="ghost" id="reportClose">닫기 ✕</button>
     </div>
     <div id="reportBody" style="max-height:78vh;overflow-y:auto;padding-right:6px"></div>
+  </div>
+</div>
+
+<div class="picker-ov" id="bugOv" style="display:none">
+  <div class="picker" style="max-width:520px">
+    <div class="picker-head">
+      <h3>🐛 버그 신고</h3>
+      <button class="ghost" id="bugClose">닫기 ✕</button>
+    </div>
+    <div style="font-size:12.5px;line-height:1.6;color:var(--txt)">
+      어떤 상황에서 무엇이 이상했는지 적어주세요. (예: "1번 인형에 박은 리몰딩이 3번 인형에도 그대로 박혀 있음")
+    </div>
+    <textarea id="bugNote" rows="4" placeholder="증상 · 재현 순서를 적어주세요" autocomplete="off"
+              style="width:100%;box-sizing:border-box;margin:8px 0;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:5px;padding:8px 9px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+    <div style="font-size:11.5px;line-height:1.6;color:var(--dim);background:var(--panel2);border:1px solid var(--line-soft);border-radius:6px;padding:8px 10px">
+      ⓘ 신고를 보내면 <b>현재 플래너 상태</b>(보유 리몰딩 전량·파티 구성·장착 상태·설정)가 함께 전송됩니다.
+      개발자가 같은 화면을 재현해 원인을 찾는 데만 쓰이며, 계정·개인정보는 포함되지 않습니다.
+    </div>
+    <div class="row" style="margin-top:12px;justify-content:flex-end;gap:8px;align-items:center">
+      <span class="auto-msg" id="bugMsg" style="margin-right:auto"></span>
+      <button class="ghost" id="bugCopy" title="전송 대신 진단 코드를 복사해 직접 전달">코드 복사</button>
+      <button class="primary" id="bugSend">신고 보내기</button>
+    </div>
   </div>
 </div>
 
@@ -4514,6 +4538,75 @@ function parseGfl2Logger(text){
 }
 
 /* ============ 내보내기 / 가져오기 ============ */
+/* ============ 버그 신고 (전체 상태 → 구글 시트) ============ */
+/* 배포 방법: 구글 시트 → 확장프로그램 → Apps Script에 동봉 .gs 코드 붙여넣기 → 웹앱 배포 →
+   나온 URL을 BUG_REPORT_URL에, 같은 비밀값을 BUG_REPORT_SECRET에 넣기(둘 다 시트 코드와 일치). */
+const BUG_REPORT_URL    = 'https://script.google.com/macros/s/AKfycbwrnA8xwXkq7az1vib7Dgm_ae-1WE6Q5-e4AWpULrzUOhDUM6UqinzZcTMR_MSjm0kXNw/exec';
+const BUG_REPORT_SECRET = 'gfl2bug_YDLvzrG_jaeh';   /* 시트 Apps Script의 SECRET과 동일해야 함(스팸 차단) */
+
+/* 시트 셀 5만 자 한계 회피 — 전체 상태 JSON을 크기 단위로 잘라 여러 칸(청크)에 나눠 담는다.
+   보유 리몰딩이 몇 만 개가 되든 한 칸이 한계를 넘지 않음(개수 무관 안전). 복원 = 청크를 순서대로 이어붙임. */
+const BUG_CHUNK = 40000;   /* 셀당 최대 글자수(5만 한계에 여유) */
+function _chunk(str, size){ const out = []; for(let i = 0; i < str.length; i += size) out.push(str.slice(i, i + size)); return out; }
+/* 현재 화면 상태 = save()가 쓰는 전체 payload(보유 리몰딩 inv 포함) 문자열 */
+function diagnosticFullCode(){
+  save();   /* 메모리 상태를 localStorage에 먼저 반영 */
+  return localStorage.getItem(STORE_KEY) || '{}';
+}
+function buildDiagnostic(note){
+  const state = diagnosticFullCode();
+  const chunks = _chunk(state, BUG_CHUNK);
+  return {
+    secret: BUG_REPORT_SECRET,
+    v: PACK_VERSION,
+    note: String(note||'').slice(0, 2000),
+    ua: (navigator.userAgent||'').slice(0, 300),
+    ts: new Date().toISOString(),
+    n: chunks.length,
+    chunks: chunks
+  };
+}
+/* 개발자용: (a) 채팅으로 받은 단일 JSON, 또는 (b) 시트 행에서 청크 칸들을 복사한(탭구분) 문자열을
+   붙여 콘솔에서 호출하면 그 화면이 그대로 복원됨. 탭을 제거해 이어붙인 뒤 첫 '{'~마지막 '}'만 취함
+   (앞뒤에 시각·버전 등 다른 칸이 섞여 들어와도 견딤). */
+window.__loadDiagnostic = function(input){
+  try{
+    const joined = String(input).split('\t').join('').trim();
+    const a = joined.indexOf('{'), b = joined.lastIndexOf('}');
+    if(a < 0 || b < a) throw new Error('JSON 본문을 찾지 못함');
+    const state = JSON.parse(joined.slice(a, b + 1));
+    if(!confirm('현재 데이터를 이 진단 상태로 교체합니다. 계속할까요? (되돌리려면 내보내기로 백업 먼저)')) return;
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    location.reload();
+  }catch(e){ alert('진단 코드 해석 실패: '+(e && e.message || e)); }
+};
+function initBugReport(){
+  const ov = document.getElementById('bugOv');
+  const note = document.getElementById('bugNote');
+  const msg = document.getElementById('bugMsg');
+  const open = () => { msg.textContent=''; msg.className='auto-msg'; note.value=''; ov.style.display='flex'; note.focus(); };
+  const close = () => { ov.style.display='none'; };
+  document.getElementById('bugBtn').onclick = open;
+  document.getElementById('bugClose').onclick = close;
+  ov.onclick = (e) => { if(e.target.id === 'bugOv') close(); };
+  document.getElementById('bugSend').onclick = async () => {
+    if(!BUG_REPORT_URL){ msg.className='auto-msg err'; msg.textContent='수신 URL 미설정 — "코드 복사"로 직접 전달하세요.'; return; }
+    msg.className='auto-msg'; msg.textContent='전송 중…';
+    try{
+      const payload = JSON.stringify(buildDiagnostic(note.value));
+      await fetch(BUG_REPORT_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:payload});
+      msg.className='auto-msg'; msg.textContent='✓ 신고가 전송되었습니다. 감사합니다!';
+      setTimeout(close, 1500);
+    }catch(e){ msg.className='auto-msg err'; msg.textContent='전송 실패 — "코드 복사"로 직접 전달해 주세요.'; }
+  };
+  document.getElementById('bugCopy').onclick = async () => {
+    try{
+      await navigator.clipboard.writeText(diagnosticFullCode());   /* 개발자가 __loadDiagnostic()에 붙일 단일 코드 */
+      msg.className='auto-msg'; msg.textContent='✓ 진단 코드를 복사했습니다. 개발자에게 전달해 주세요.';
+    }catch(e){ msg.className='auto-msg err'; msg.textContent='복사 실패 — 브라우저 권한을 확인하세요.'; }
+  };
+}
+
 function initIO(){
   document.getElementById('reportBtn').onclick = openInvReport;
   document.getElementById('exportBtn').onclick = () => {
@@ -5897,6 +5990,7 @@ load();
 if(dollId != null) loadProfile();
 initForm();
 initIO();
+initBugReport();
 initScanner();
 renderTargets();
 renderAll();

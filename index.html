@@ -541,6 +541,7 @@ button.danger:hover{border-color:var(--bad)}
 .cap-warn b{color:var(--warn)}
 .cap-steps{font-size:12px;color:var(--dim);margin:10px 0;line-height:1.7}
 .cap-steps code{background:var(--panel2);padding:1px 5px;border-radius:3px;color:var(--txt)}
+.cap-dlrow{display:flex;gap:8px;flex-wrap:wrap}
 .cap-dl{display:inline-block;background:var(--ok);color:#0D110F;font-weight:700;font-size:13px;padding:8px 16px;border-radius:6px;text-decoration:none}
 .cap-dl:hover{filter:brightness(1.12)}
 
@@ -769,14 +770,16 @@ button.danger:hover{border-color:var(--bad)}
             <br>(개인이 만든 도구이며, <b>이 계산기 자체는 게임에 일절 접근하지 않습니다.</b> 캡처는 이 스크립트를 직접 실행할 때만 일어납니다.)
           </div>
           <div class="cap-steps">
-            ① 게임에서 <b>리몰딩 창고</b>를 엽니다<br>
-            ② 아래 <b>스크립트 다운로드</b> (예: <code>다운로드</code> 폴더에 저장)<br>
-            ③ <b>PowerShell</b>을 열고 아래를 붙여넣어 실행(저장 위치에 맞게 경로 수정):<br>
-            <code>powershell -ExecutionPolicy Bypass -File "$HOME\Downloads\remold_capture.ps1"</code><br>
-            → <b>UAC 허용</b>(관리자 승격) → 바탕화면에 <code>gf2_remold.csv</code> 생성<br>
-            ④ 위 <b>가져오기</b>로 그 파일 선택
+            ① 아래 <b>파일 2개를 모두</b> 같은 폴더(보통 <b>다운로드</b> 폴더)에 받습니다<br>
+            ② 게임에서 <b>리몰딩 창고</b>를 엽니다<br>
+            ③ 받은 <b>실행(.bat)</b> 파일을 <b>더블클릭</b> → <b>UAC 허용</b> → 바탕화면에 <code>gf2_remold.csv</code> 생성<br>
+            ④ 위 <b>가져오기</b>로 그 파일을 선택<br>
+            <span style="color:var(--dim);font-size:11px">※ 실행 시 "Windows가 PC를 보호했습니다/보안 경고"가 뜨면 <b>추가 정보 → 실행</b>. 파란 파워셸 창이 뜨고 끝나면 Enter로 닫힙니다. (.bat은 옆의 .ps1을 실행할 뿐이라 둘이 같은 폴더에 있어야 함)</span>
           </div>
-          <a class="cap-dl" href="remold_capture.ps1" download>⬇ 캡처 스크립트 다운로드 (.ps1)</a>
+          <div class="cap-dlrow">
+            <a class="cap-dl" href="remold_capture_RUN.bat" download>⬇ ① 실행 파일 (.bat)</a>
+            <a class="cap-dl" href="remold_capture.ps1" download>⬇ ② 캡처 스크립트 (.ps1)</a>
+          </div>
         </div>
       </details>
 

@@ -29,6 +29,11 @@ var SECRET = 'gfl2bug_YDLvzrG_jaeh';   // ← index.html 의 BUG_REPORT_SECRET �
 //   Apps Script 편집기에서만 자기만 아는 값으로 바꾸고, 그 값을 개발자(클로드)에게만 전달.
 var ADMIN_KEY = 'gfl2admin_CHANGE_ME';
 
+// 새 신고마다 알림 이메일 발송(스크립트 소유자 = 배포한 본인에게). 끄려면 false.
+// 첫 배포 시 이메일 전송 권한 승인 1회 필요. (Discord로 받고 싶으면 DISCORD_WEBHOOK 채우고 아래 doPost 참고)
+var NOTIFY_EMAIL = true;
+var DISCORD_WEBHOOK = '';   // 예: 'https://discord.com/api/webhooks/…' (있으면 이메일 대신/추가로 디스코드 알림)
+
 var HEADERS = ['시각','버전','메모','UA','청크수','상태(청크1)'];
 
 function doPost(e) {
@@ -46,6 +51,22 @@ function doPost(e) {
     var row = [new Date(), data.v == null ? '' : data.v, cap(data.note), cap(data.ua), data.n || chunks.length];
     row = row.concat(chunks);   // 청크 개수만큼 F열부터 이어서 기록
     sh.appendRow(row);
+
+    // ── 새 신고 알림 ──────────────────────────────────
+    try {
+      var invN = '';
+      try { var stt = JSON.parse(chunks.join('')); if (stt && Array.isArray(stt.inv)) invN = '\n보유 리몰딩: ' + stt.inv.length + '개'; } catch (e) {}
+      var line = '메모: ' + (data.note || '(없음)') + '\n행: ' + sh.getLastRow() + '\n버전: ' + (data.v == null ? '' : data.v) + '\nUA: ' + (data.ua || '') + invN;
+      if (NOTIFY_EMAIL) {
+        var to = Session.getEffectiveUser().getEmail();
+        if (to) MailApp.sendEmail(to, 'GFL2 플래너 — 새 버그 신고', '새 버그 신고가 접수되었습니다.\n\n' + line + '\n\n확인: 클로드에게 "버그 신고 봐줘".');
+      }
+      if (DISCORD_WEBHOOK) {
+        UrlFetchApp.fetch(DISCORD_WEBHOOK, { method: 'post', contentType: 'application/json',
+          payload: JSON.stringify({ content: '🐛 **새 버그 신고**\n' + line }), muteHttpExceptions: true });
+      }
+    } catch (e) { /* 알림 실패해도 신고 접수는 성공 처리 */ }
+    // ──────────────────────────────────────────────────
 
     return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
   } catch (err) {

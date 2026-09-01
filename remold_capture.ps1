@@ -89,12 +89,15 @@ while($addr -lt $max){
 Write-Host ''
 
 if($count.Count -eq 0){ Write-Host '오류: 리몰딩 아이템 미검출 — 게임에서 [리몰딩 창고]를 열고 다시 실행하세요.'; Read-Host '엔터를 누르면 닫힙니다'; return }
-$occ=@($count.Values | Sort-Object); $base=$occ[[int]($occ.Count/2)]; if($base -lt 1){ $base=1 }; $half=$base*0.5
+# base = per-item occurrence (real items cluster tightly at 1.0x base). Phantom "runs" from
+# adjacent codes in non-inventory memory show up at ~0.5-0.7x base, so require >= 0.8x base to
+# count as owned (empirically real items are >=1.0x, false positives <=0.72x, clean gap between).
+$occ=@($count.Values | Sort-Object); $base=$occ[[int]($occ.Count/2)]; if($base -lt 1){ $base=1 }; $minOcc=$base*0.8
 
 $sb=New-Object System.Text.StringBuilder; [void]$sb.AppendLine('uid,stat1,stat2,stat3')
 $idx=0; $rowN=0; $items=0; $amb=@()
 foreach($kk in $count.Keys){
- if($count[$kk] -lt $half){ continue }
+ if($count[$kk] -lt $minOcc){ continue }
  $arr=$repr[$kk]
  $s1=$hexOf[[int]$arr[0]]; $s2= if($arr.Count -ge 2){$hexOf[[int]$arr[1]]}else{''}; $s3= if($arr.Count -ge 3){$hexOf[[int]$arr[2]]}else{''}
  $ratio=$count[$kk]/[double]$base; $frac=$ratio-[Math]::Floor($ratio)

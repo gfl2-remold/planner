@@ -14,6 +14,7 @@
   assemble→deploy 해도 안 사라짐. **앞으로 `webdist/index.html` 직접 편집 금지** — 반드시 `files/planner_template.html`
   수정 → `python assemble_planner.py` → `node deploy_web.js "msg"`(files/에서). 직접 편집분은 다음 deploy에 덮임.
 - `deploy_web.js`는 `remold_capture.exe`도 webdist에 함께 커밋(웹 다운로드 버튼 대상). 상세 = `files/HANDOVER.md` 세션 로그(2026-08-31).
+- ⚠ **캡처 exe 재컴파일 금지(공개 배포분)**: 서명 없는 메모리스캐너라 새로 컴파일하면 **파일 해시가 바뀌어 SmartScreen이 "바이러스"로 다운로드 차단**함(재현됨). 현재 webdist/capture의 exe는 다운로드 통과가 확인된 **최초 배포 블롭(sha256 713bd33…)으로 고정**. 소스 `capture/Remold.cs`는 이후 잠복경고 밴드(0.45–0.55)로 갱신돼 있지만 **CSV 개수 결과는 구·신 동일**(밴드는 경고 문구 조건만 좌우). 로직만 손봤다고 recompile→deploy 하면 도로 차단되니, 공개 exe는 그대로 두고 잠복경고가 필요하면 Ctrl+R 경로(`remold_extract.ps1`, 신밴드 유지)를 쓸 것. exe를 꼭 바꿔야 하면 유료 코드사이닝 필요.
 
 ### 집 세션 주요 작업 (전부 배포됨)
 - **메모리 캡처 = 로거(gfl2logger) 완전 대체**: MITM/CA/프록시/번들 없이 게임 힙 읽기전용 스캔으로 보유 리몰딩 추출.

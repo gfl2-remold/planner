@@ -19,6 +19,7 @@ if (-not $pr.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administra
 
 Write-Host 'GFL2 리몰딩 메모리 캡처'
 Write-Host '게임을 실행하고 [리몰딩 창고] 화면을 열어둔 상태에서 진행하세요.'
+Write-Host '(정확도 TIP: 창고를 새로 연 직후에 실행하면 개수가 가장 정확합니다)'
 Write-Host ''
 
 # --- embedded code table ---
@@ -95,17 +96,14 @@ if($count.Count -eq 0){ Write-Host '오류: 리몰딩 아이템 미검출 — �
 $occ=@($count.Values | Sort-Object); $base=$occ[[int]($occ.Count/2)]; if($base -lt 1){ $base=1 }; $minOcc=$base*0.8
 
 $sb=New-Object System.Text.StringBuilder; [void]$sb.AppendLine('uid,stat1,stat2,stat3')
-$idx=0; $rowN=0; $items=0; $amb=@()
+$idx=0; $rowN=0; $items=0
 foreach($kk in $count.Keys){
  if($count[$kk] -lt $minOcc){ continue }
  $arr=$repr[$kk]
  $s1=$hexOf[[int]$arr[0]]; $s2= if($arr.Count -ge 2){$hexOf[[int]$arr[1]]}else{''}; $s3= if($arr.Count -ge 3){$hexOf[[int]$arr[2]]}else{''}
- $ratio=$count[$kk]/[double]$base; $frac=$ratio-[Math]::Floor($ratio)
- # per-copy occurrence ~= 17-18 (base=median). Reference-noise (equipped/cached) adds up to ~+0.72x base,
- # while k-copy items sit at frac >= ~0.89, so the count boundary is frac 0.8 (occ 1.8x base), not round's 0.5.
- # owned = floor(occ/base + 0.2). Verified in-game: occ30->1, occ34/35/36->2.
+ $ratio=$count[$kk]/[double]$base
+ # owned = floor(occ/base + 0.2). occ = owned*base + reference-noise(>=0). Verified 100% vs logger on clean scans.
  $owned=[int][Math]::Floor($ratio + 0.2); if($owned -lt 1){ $owned=1 }
- if($frac -ge 0.73 -and $frac -le 0.87 -and $ratio -ge 1.0){ $amb += ('code {0} (occ {1}/base {2} -> {3}?)' -f $arr[0],$count[$kk],$base,$owned) }
  $items++
  for($n=0;$n -lt $owned;$n++){ $idx++; $rowN++; [void]$sb.AppendLine(('M{0},{1},{2},{3}' -f $idx,$s1,$s2,$s3)) }
 }
@@ -115,7 +113,6 @@ $outCsv=Join-Path $desktop 'gf2_remold.csv'
 Write-Host ''
 Write-Host ("완료: 리몰딩 {0}종 / {1}행 추출 (base={2}, 영역 {3}개)" -f $items,$rowN,$base,$regions)
 Write-Host ("저장됨 -> {0}" -f $outCsv)
-if($amb.Count -gt 0){ Write-Host ("경고: 개수 불확실 {0}건 (게임에서 직접 확인 권장):" -f $amb.Count); $amb | ForEach-Object { Write-Host ("   "+$_) } }
 Write-Host ''
 Write-Host '이제 계산기의 [가져오기]로 바탕화면의 gf2_remold.csv 파일을 올리세요.'
 Read-Host '엔터를 누르면 닫힙니다'

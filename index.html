@@ -2895,7 +2895,7 @@ function load(){
    구버전 저장 프로필은 로드 시 자동 폐기(프리셋 복원과 동일) — 낡은 수치가 수정을 우회하는 찌꺼기 근치
    (실증: 클루카이 single, 레이니 cr 수정이 저장 프로필에 막힘 2026-08-20). 수동 핀(딜 속성)만 보존. */
 const PACK_VERSION = 3;   /* v3: 정밀 크롤 반영(자체 치명캡 7인·힐러 봉인 4인·오버크릿 비율·소환물 페널티·페리 칼피공) */
-const BUILD_VERSION = '20260904T090556Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
+const BUILD_VERSION = '20260904T091657Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
 let lastAssignLog = {};   /* 인형별 마지막 배치 기록 {dollId:{act:'single'|'party'|'manual', ts, ver}} — 어떤 조건/버전으로 만든 배치인지 버그리포트에 남김 */
 /* 버전 검사 통과한 프로필만 반환 — 구버전은 폐기하고 명시적 사용자 선택(속성 핀·방어형)만 이월.
    프로필을 읽는 모든 경로(loadProfile·파티 배치·복원·요약)는 profiles[id] 직독 금지, 이걸 쓸 것. */
@@ -6007,6 +6007,29 @@ initBugReport();
 initScanner();
 renderTargets();
 renderAll();
+
+/* 버전 체크 — 배포된 version.txt(빌드시각)와 자기 BUILD_VERSION 비교 → 뒤처지면 새로고침 배너.
+   오래 열어둔 탭이 구버전 코드로 계속 도는 문제(며칠째 옛 배치가 나오던 원인)를 원천 차단. */
+function showUpdateBanner(newVer){
+  if(document.getElementById('__updBanner')) return;
+  const b = document.createElement('div');
+  b.id = '__updBanner';
+  b.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1c6feb;color:#fff;padding:11px 18px;border-radius:8px;font:13px system-ui,-apple-system,sans-serif;z-index:100000;box-shadow:0 4px 18px rgba(0,0,0,.45);cursor:pointer;display:flex;gap:10px;align-items:center';
+  b.innerHTML = '🔄 새 버전이 배포되었습니다 — <b style="text-decoration:underline">새로고침</b>';
+  b.title = '최신 ' + newVer + ' / 현재 ' + BUILD_VERSION;
+  b.onclick = () => location.reload();
+  document.body.appendChild(b);
+}
+function initVersionCheck(){
+  if(BUILD_VERSION.indexOf('__') === 0) return;   /* 미조립(플레이스홀더)·file:// 데스크톱은 스킵 */
+  const check = () => fetch('version.txt?cb=' + Date.now(), {cache:'no-store'})
+    .then(r => r.ok ? r.text() : null)
+    .then(v => { v = (v||'').trim(); if(v && v > BUILD_VERSION) showUpdateBanner(v); })
+    .catch(() => {});
+  setTimeout(check, 6000);
+  setInterval(check, 5*60*1000);
+}
+initVersionCheck();
 </script>
 <script>/* ================= GFL 요리 레시피 탭 (마스터-디테일 분할) =================
    좌: 간략 레시피 목록(카테고리/서브 필터) · 우: 선택 요리 크게(요리·재료 슬롯·효과)

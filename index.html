@@ -2895,7 +2895,7 @@ function load(){
    구버전 저장 프로필은 로드 시 자동 폐기(프리셋 복원과 동일) — 낡은 수치가 수정을 우회하는 찌꺼기 근치
    (실증: 클루카이 single, 레이니 cr 수정이 저장 프로필에 막힘 2026-08-20). 수동 핀(딜 속성)만 보존. */
 const PACK_VERSION = 3;   /* v3: 정밀 크롤 반영(자체 치명캡 7인·힐러 봉인 4인·오버크릿 비율·소환물 페널티·페리 칼피공) */
-const BUILD_VERSION = '20260904T091657Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
+const BUILD_VERSION = '20260904T093046Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
 let lastAssignLog = {};   /* 인형별 마지막 배치 기록 {dollId:{act:'single'|'party'|'manual', ts, ver}} — 어떤 조건/버전으로 만든 배치인지 버그리포트에 남김 */
 /* 버전 검사 통과한 프로필만 반환 — 구버전은 폐기하고 명시적 사용자 선택(속성 핀·방어형)만 이월.
    프로필을 읽는 모든 경로(loadProfile·파티 배치·복원·요약)는 profiles[id] 직독 금지, 이걸 쓸 것. */
@@ -4820,8 +4820,19 @@ function bestNonDomElem(dom, used){
    공진은 표시용이라 실딜은 항상 실속성(위상)으로 환원. 수동 고정은 호출부에서 우선 처리. */
 /* 유효한 수동 속성 픽만 통과 — 공진(표시전용)·흑로자의 물리(공진=물리제외)는 무효 → 자동 배정으로 넘김 */
 function flexPin(doll, e){ return (e && e !== '공진' && !(doll.name === 'OTs-14' && e === '물리')) ? e : null; }
+/* OTs-14 공진 강제 속성 — 이 인형들이 파티에 있으면 그 속성 피증버프>20%로 공진이 그 속성으로 고정됨(게임 실측,
+   다른 속성 서브 무효). 그 3인 중 하나라도 있으면 그 속성을 따라감(둘 이상은 실전에 없음 — 파티 순서상 먼저 걸리는 것). */
+const OTS14_ELEM_FORCERS = {'벡터':'연소', '섹스턴스':'전도', '앨바':'빙결'};
+function ots14ForcedElem(){
+  const elems = new Set();
+  for(const id of party){ if(id == null) continue; const d = dollById(id); if(d && OTS14_ELEM_FORCERS[d.name]) elems.add(OTS14_ELEM_FORCERS[d.name]); }
+  if(elems.size === 0) return null;            // 셋 중 아무도 없음 → 강제 없음(기존 로직)
+  if(elems.size === 1) return [...elems][0];   // 하나 → 그 속성 따라감
+  return partyDominantElem();                   // 둘 이상 → 파티 지배속성
+}
 /* 표시/드롭다운 기본 = 파티 속성 매칭(오인 방지 — 흑로자도 파티속성으로 표시). 회피는 리몰딩 배치(partyAutoAssign) 전담. */
 function flexMatchElem(doll){
+  if(doll.name === 'OTs-14'){ const f = ots14ForcedElem(); if(f) return f; }
   return partyDominantElem() || ((doll.elem && doll.elem !== '공진') ? doll.elem : (bestNonDomElem(null, new Set()) || '빙결'));
 }
 /* 실효 속성 단일 창구 — 표시·요약·협동 매칭 등 모든 소비처는 이걸 쓸 것(중복 구현 금지).
@@ -4836,7 +4847,7 @@ function flexWorkElem(doll, used){
   /* 공진(흑로자): 서브 채점이 와일드카드(dmgBuckets)라 배치 속성은 표시와 동일하게 파티 매칭.
      경합 양보는 와일드카드의 지배속성 소프트 페널티가 전담(하드 회피 폐기 — 사용자 지시). */
   if(doll.name === 'OTs-14')
-    return dom || bestNonDomElem(null, used) || '빙결';
+    return ots14ForcedElem() || dom || bestNonDomElem(null, used) || '빙결';
   return dom || (doll.elem && doll.elem !== '공진' ? doll.elem : '빙결');
 }
 let PE = [];   // dmgMult에서 채우는 파티 딜러 속성 캐시

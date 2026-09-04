@@ -2895,7 +2895,7 @@ function load(){
    구버전 저장 프로필은 로드 시 자동 폐기(프리셋 복원과 동일) — 낡은 수치가 수정을 우회하는 찌꺼기 근치
    (실증: 클루카이 single, 레이니 cr 수정이 저장 프로필에 막힘 2026-08-20). 수동 핀(딜 속성)만 보존. */
 const PACK_VERSION = 3;   /* v3: 정밀 크롤 반영(자체 치명캡 7인·힐러 봉인 4인·오버크릿 비율·소환물 페널티·페리 칼피공) */
-const BUILD_VERSION = '20260904T104454Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
+const BUILD_VERSION = '20260904T113900Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
 let lastAssignLog = {};   /* 인형별 마지막 배치 기록 {dollId:{act:'single'|'party'|'manual', ts, ver}} — 어떤 조건/버전으로 만든 배치인지 버그리포트에 남김 */
 /* 버전 검사 통과한 프로필만 반환 — 구버전은 폐기하고 명시적 사용자 선택(속성 핀·방어형)만 이월.
    프로필을 읽는 모든 경로(loadProfile·파티 배치·복원·요약)는 profiles[id] 직독 금지, 이걸 쓸 것. */
@@ -5201,6 +5201,26 @@ function scoreOf(itemIds){
        빈 슬롯은 유발 안 함(슬롯 채움은 그대로 아래 total이 담당, capWaste는 오버캡분만 구분). */
     let capWaste = 0;
     for(const key in lvByKey){ const o = getOptByKey(key); if(o) capWaste += Math.max(0, lvByKey[key] - o.v.length); }
+    /* liveTotal = 슬롯 채움 타이브레이커를 '라이브 서브만' 계상 (구 total은 죽은 서브 레벨도 무조건 합산 →
+       예: 전도협동2[서포트]가 딜0·현상무의미인데 레벨2로 잡혀, 실가치 높은 눈에는눈 조각(레벨1)을 눌러 최악 조각을 쥐던 버그).
+       서브는 (실딜 기여) 또는 (이 인형 현상이 실제 쓰는 카테고리 기여) 하나라도 있으면 레벨 계상, 둘 다 없으면 0.
+       서포트는 OTs-14 현상 요구치(bul/van/sen)에 없음 → 전도협동=0. 눈에는눈/보스대책[불워크]은 현상 게이트라 계상. */
+    const _liveD = dollById(dollId);
+    const phenoCats = new Set();
+    if(_liveD && PHENO[_liveD.name]) PHENO_STAGES.forEach(st => { const r = PHENO[_liveD.name][st]; if(r) for(const k in r) phenoCats.add(k); });
+    const subDmgLive = (cat, name, val) => {
+      if(name.endsWith('협동')) return false;   /* 협동 = partyCoopPool이 수혜자에게 크레딧 → 착용자 자체딜 0(±0.01은 방향값) */
+      const e = dmgEffect('S', cat, name, val);
+      return !!e && ((e.dmg||0) > 0 || (e.cd||0) > 0 || (e.cr||0) > 0 || (e.atk||0) > 0 || (e.atkFlat||0) > 0 || (e.hpPct||0) > 0 || (e.hpFlat||0) > 0);
+    };
+    let liveTotal = 0;
+    for(const key in lvByKey){
+      const o = getOptByKey(key); if(!o) continue;
+      const [kind, cat, name] = key.split('|');
+      if(kind === 'M'){ liveTotal += lvByKey[key]; continue; }   /* 주옵 = 슬롯 채움(항상 계상) */
+      const val = o.v[Math.min(lvByKey[key], o.v.length) - 1];
+      if(subDmgLive(cat, name, val) || phenoCats.has(cat)) liveTotal += lvByKey[key];
+    }
     /* 시너지 전담 서포터(버프봇): [현상활성점수, 협동총레벨, mult, 총수치]. 피칼전 최우선 대상 아님(코옵/현상 전담). */
     if(dollId != null && dollId === lastSupportId()){
       const dn = dollById(dollId);
@@ -5218,7 +5238,7 @@ function scoreOf(itemIds){
           coopLv += Math.min(lvByKey[key], o ? o.v.length : lvByKey[key]);
         }
       }
-      return [phenoScore, coopLv, pkLv, mult, -capWaste, total];
+      return [phenoScore, coopLv, pkLv, mult, -capWaste, liveTotal];
     }
     /* 현상 딜값(꽃 +12% 등, 조건 충족 활성 단계의 dmg+atk 합) = 최상위 — 공격 스탯 우위로도 꽃 12%는 못 넘음(사용자 규칙).
        그 아래 피칼전 → mult → 위키 추천 매칭 → 총수치.
@@ -5243,7 +5263,7 @@ function scoreOf(itemIds){
         }
       });
     }
-    return [phenoVal, pkLv, mult, recoScoreOf(itemIds), -capWaste, total];
+    return [phenoVal, pkLv, mult, recoScoreOf(itemIds), -capWaste, liveTotal];
   }
   const sc = targets.map(key => {
     if(!key) return 0;

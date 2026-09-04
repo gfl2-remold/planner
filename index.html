@@ -2895,7 +2895,7 @@ function load(){
    구버전 저장 프로필은 로드 시 자동 폐기(프리셋 복원과 동일) — 낡은 수치가 수정을 우회하는 찌꺼기 근치
    (실증: 클루카이 single, 레이니 cr 수정이 저장 프로필에 막힘 2026-08-20). 수동 핀(딜 속성)만 보존. */
 const PACK_VERSION = 3;   /* v3: 정밀 크롤 반영(자체 치명캡 7인·힐러 봉인 4인·오버크릿 비율·소환물 페널티·페리 칼피공) */
-const BUILD_VERSION = '20260904T113900Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
+const BUILD_VERSION = '20260904T120255Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
 let lastAssignLog = {};   /* 인형별 마지막 배치 기록 {dollId:{act:'single'|'party'|'manual', ts, ver}} — 어떤 조건/버전으로 만든 배치인지 버그리포트에 남김 */
 /* 버전 검사 통과한 프로필만 반환 — 구버전은 폐기하고 명시적 사용자 선택(속성 핀·방어형)만 이월.
    프로필을 읽는 모든 경로(loadProfile·파티 배치·복원·요약)는 profiles[id] 직독 금지, 이걸 쓸 것. */
@@ -4902,7 +4902,7 @@ function dmgEffect(kind, cat, name, val){
     /* 협동: 파티 버프 실크레딧은 partyCoopPool(수혜자 측) 전담 — 여기선 ±ε 타이브레이커만.
        착용자 본인 점수엔 협동이 0이라 죽은 서브끼리 동점 → 인벤 순서로 산성 협동을 무작위 채택하던 버그
        (2026-08-20 픽스처 시뮬 8건 적발). 파티속성 협동 +0.01, 비매칭 -0.01로 방향만 제시(딜 왜곡 없음). */
-    if(name.endsWith('협동')) return {dmg: (PE.length && PE.includes(first)) ? 0.01 : -0.01};
+    if(name.endsWith('협동')) return null;   /* 협동 = partyCoopPool이 수혜자에게 크레딧 → 착용자 자체딜 0. 속성매칭 선호는 scoreOf 최하위 타이브레이커(coopMatch)로 이동 — 매칭 협동의 +0.01이 mult를 부풀려 실가치 조각(눈에는눈·치명강화)을 mult 단계에서 밀어내던 버그 근치 */
     if(name.endsWith('강화')) return {dmg: val * em(name)};       /* 자기 속성 강화 */
   }
   return null;
@@ -5221,6 +5221,14 @@ function scoreOf(itemIds){
       const val = o.v[Math.min(lvByKey[key], o.v.length) - 1];
       if(subDmgLive(cat, name, val) || phenoCats.has(cat)) liveTotal += lvByKey[key];
     }
+    /* 협동 속성매칭 = 최하위 타이브레이커 (구 dmgEffect ±0.01을 mult에서 뺀 대체물). **비매칭 협동만 -lv 페널티**,
+       매칭/무협동은 0 — 매칭 협동을 보상하면(예 전도파티의 전도협동) 이미 시너지전담이 대는 redundant 협동을 다시 우대해
+       실가치 조각을 밀어내는 회귀가 생김. 페널티 방향만 유지해 '비매칭 협동(산성 등) 무작위 채택'만 차단. 공격 협동은 주옵 제외. */
+    let coopMatch = 0;
+    for(const key in lvByKey){
+      const cn = key.split('|')[2];
+      if(cn.endsWith('협동') && cn !== '공격 협동' && !PE.includes(cn.split(' ')[0])) coopMatch -= lvByKey[key];
+    }
     /* 시너지 전담 서포터(버프봇): [현상활성점수, 협동총레벨, mult, 총수치]. 피칼전 최우선 대상 아님(코옵/현상 전담). */
     if(dollId != null && dollId === lastSupportId()){
       const dn = dollById(dollId);
@@ -5238,7 +5246,7 @@ function scoreOf(itemIds){
           coopLv += Math.min(lvByKey[key], o ? o.v.length : lvByKey[key]);
         }
       }
-      return [phenoScore, coopLv, pkLv, mult, -capWaste, liveTotal];
+      return [phenoScore, coopLv, pkLv, mult, -capWaste, liveTotal, coopMatch];
     }
     /* 현상 딜값(꽃 +12% 등, 조건 충족 활성 단계의 dmg+atk 합) = 최상위 — 공격 스탯 우위로도 꽃 12%는 못 넘음(사용자 규칙).
        그 아래 피칼전 → mult → 위키 추천 매칭 → 총수치.
@@ -5263,7 +5271,7 @@ function scoreOf(itemIds){
         }
       });
     }
-    return [phenoVal, pkLv, mult, recoScoreOf(itemIds), -capWaste, liveTotal];
+    return [phenoVal, pkLv, mult, recoScoreOf(itemIds), -capWaste, liveTotal, coopMatch];
   }
   const sc = targets.map(key => {
     if(!key) return 0;

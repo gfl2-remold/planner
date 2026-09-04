@@ -2895,7 +2895,7 @@ function load(){
    구버전 저장 프로필은 로드 시 자동 폐기(프리셋 복원과 동일) — 낡은 수치가 수정을 우회하는 찌꺼기 근치
    (실증: 클루카이 single, 레이니 cr 수정이 저장 프로필에 막힘 2026-08-20). 수동 핀(딜 속성)만 보존. */
 const PACK_VERSION = 3;   /* v3: 정밀 크롤 반영(자체 치명캡 7인·힐러 봉인 4인·오버크릿 비율·소환물 페널티·페리 칼피공) */
-const BUILD_VERSION = '20260904T093046Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
+const BUILD_VERSION = '20260904T094648Z';   /* assemble_planner.py가 배포(빌드) UTC 시각으로 치환 — 버그리포트 재현용 */
 let lastAssignLog = {};   /* 인형별 마지막 배치 기록 {dollId:{act:'single'|'party'|'manual', ts, ver}} — 어떤 조건/버전으로 만든 배치인지 버그리포트에 남김 */
 /* 버전 검사 통과한 프로필만 반환 — 구버전은 폐기하고 명시적 사용자 선택(속성 핀·방어형)만 이월.
    프로필을 읽는 모든 경로(loadProfile·파티 배치·복원·요약)는 profiles[id] 직독 금지, 이걸 쓸 것. */
@@ -4949,14 +4949,20 @@ function dmgBuckets(lvByKey){
     for(const k in e) b[k] += e[k];
   }
   if(reson){
-    /* 파티 지배속성(예: 빙결팟의 빙결)은 하드 제외하지 않되 미세 페널티 → 동률이면 비지배 속성 아이템을
-       택해 전문 딜러(헬렌 등)에게 경합 아이템을 양보, 수치가 확실히 크면 지배속성도 그대로 사용(사용자 지시). */
-    const _dom = partyDominantElem();
-    const mx = obj => { let m = 0, mk = null;
-      for(const k in obj){ const pv = obj[k] - (k === _dom ? 0.05 : 0); if(pv > m){ m = pv; mk = k; } }
-      return mk ? obj[mk] - (mk === _dom ? 0.01 : 0) : 0; };
-    b.dmg += mx(elemDmg);   /* 강화(피해%): 최고 1속성만 */
-    b.cd  += mx(elemCd);    /* 강타(치명피해): 최고 1속성만 — 강화와 별개 타입이라 동시 적용 */
+    const forced = ots14ForcedElem();   /* 증폭기(벡터/섹스턴스/앨바)로 속성 피증>20% 강제 시 그 속성만 유효 — 타 속성 강화/강타 완전 무효(게임 실측) */
+    if(forced){
+      b.dmg += elemDmg[forced] || 0;   /* 강제 속성 강화만 */
+      b.cd  += elemCd[forced]  || 0;   /* 강제 속성 강타만 */
+    } else {
+      /* 강제 없으면 원래 공진: 전 속성 중 최고 1속성만. 파티 지배속성은 하드 제외 대신 미세 페널티 →
+         동률이면 비지배 속성 아이템을 택해 전문 딜러(헬렌 등)에게 양보, 수치가 확실히 크면 지배속성도 사용. */
+      const _dom = partyDominantElem();
+      const mx = obj => { let m = 0, mk = null;
+        for(const k in obj){ const pv = obj[k] - (k === _dom ? 0.05 : 0); if(pv > m){ m = pv; mk = k; } }
+        return mk ? obj[mk] - (mk === _dom ? 0.01 : 0) : 0; };
+      b.dmg += mx(elemDmg);   /* 강화(피해%): 최고 1속성만 */
+      b.cd  += mx(elemCd);    /* 강타(치명피해): 최고 1속성만 */
+    }
   }
   return b;
 }
